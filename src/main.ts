@@ -1,6 +1,8 @@
 import './ui/style.css';
 import { UI } from './ui/app';
 import { WorldView } from './render/view';
+import { newEditor, type EditorState, type NodeId } from './world/railway';
+import { describeCommand, executeCommand, deploymentReadiness, type Command } from './simulation/construction';
 import { Simulation } from './simulation/clock';
 import { createWorld, type Speed } from './world/state';
 import { type StationId } from './world/map';
@@ -10,9 +12,28 @@ let world=createWorld();
 let initialNotice='';
 try { const saved=readLocal();if(saved){world=saved.world;initialNotice='已回到上次停留的沿线时光。';} } catch(e){initialNotice=`${(e as Error).message} 将使用初始世界，原存档保留至下次成功保存。`;}
 let view:WorldView|undefined;
+let editor:EditorState=newEditor();
+let pending:Command|null=null;
 let saveBlocked=!!initialNotice&&initialNotice.includes('初始世界');
 const simulation=new Simulation(world);
-function select(id:StationId|null){world.selected=id;view?.setSelection(id);ui.update(world);}
+function refresh(){view?.syncRailway(world,editor);ui.update(world,editor);}
+function select(id:StationId|null){
+  if(id!==null)editor.mode='inspect';
+  else if(editor.mode==='track'){editor.from=null;editor.to=null;}
+  world.selected=id;view?.setSelection(id);refresh();
+}
+function nodeSelect(id:NodeId|null){
+  if(!id){ui.toast('请靠近候选节点点击；轨道只能沿预设走廊建设。');return;}
+  if(!editor.from||editor.to){editor.from=id;editor.to=null;}else editor.to=id;
+  refresh();
+}
+function commit(c:Command){const result=executeCommand(world,c);refresh();ui.toast(result.message,!result.ok);if(result.ok)store();}
+function request(c:Command){
+  const d=describeCommand(world,c);
+  if(!d.ok){ui.toast(d.message,true);return;}
+  if(c.type==='rename-station'||c.type==='set-stops'){commit(c);return;}
+  pending=c;ui.confirmation(d.message,d.amount,c.type.startsWith('remove'));
+}
 function syncCamera(){if(view)world.camera=view.getCamera();}
 function store(manual=false){
   if(saveBlocked&&!manual)return;
@@ -21,13 +42,17 @@ function store(manual=false){
 }
 function restore(raw:string){
   const saved=decodeSave(raw); // Atomic validation before replacing any live state.
-  world=saved.world;simulation.state=world;simulation.resetElapsed();
-  view?.setCamera(world.camera);view?.setSelection(world.selected);ui.update(world);saveBlocked=false;
+  world=saved.world;simulation.state=world;simulation.resetElapsed();editor=newEditor();pending=null;ui.closeConfirmation();
+  view?.setCamera(world.camera);view?.setSelection(world.selected);refresh();saveBlocked=false;
 }
 const ui=new UI(document.getElementById('app')!,{
-  pause(){world.clock.paused=!world.clock.paused;simulation.resetElapsed();ui.update(world);},
-  speed(n:Speed){world.clock.speed=n;simulation.resetElapsed();ui.update(world);},
+  pause(){world.clock.paused=!world.clock.paused;simulation.resetElapsed();refresh();},
+  speed(n:Speed){world.clock.speed=n;simulation.resetElapsed();refresh();},
   select,
+  mode(mode){editor.mode=mode;refresh();},
+  endpoint(slot,id){editor[slot]=id;if(slot==='from'&&!id)editor.to=null;refresh();},
+  command:request,
+  confirm(){const c=pending;pending=null;ui.closeConfirmation();if(c)commit(c);},
   focus(id){view?.focus(id);},home(){view?.resetCamera();select(null);},zoom(f){view?.zoom(f);},
   save(){store(true);},
   load(){try{const saved=readLocal();if(!saved){ui.toast('还没有本地存档，可以先保存当前进度。');return;}restore(JSON.stringify(saved));ui.toast('已读取存档，地图与视角已恢复。');}catch(e){ui.toast((e as Error).message,true);}},
@@ -40,13 +65,14 @@ const ui=new UI(document.getElementById('app')!,{
     catch(e){ui.toast((e as Error).message,true);}
   },
 });
-ui.update(world);
+document.getElementById('construction-dialog')!.addEventListener('close',()=>{if(!(document.getElementById('construction-dialog') as HTMLDialogElement).open)pending=null;});
+refresh();
 try{
-  view=new WorldView(document.getElementById('viewport')!,select,()=>{});
-  view.setCamera(world.camera);view.setSelection(world.selected);
+  view=new WorldView(document.getElementById('viewport')!,select,()=>{},nodeSelect);
+  view.setCamera(world.camera);view.setSelection(world.selected);refresh();
   document.getElementById('loading')!.remove();
   if(initialNotice)ui.toast(initialNotice,saveBlocked);
-  view.renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();world.clock.paused=true;simulation.resetElapsed();ui.update(world);ui.toast('图形上下文已丢失，模拟已暂停。请保存后刷新页面。',true);});
+  view.renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();world.clock.paused=true;simulation.resetElapsed();refresh();ui.toast('图形上下文已丢失，模拟已暂停。请保存后刷新页面。',true);});
 }catch(e){
   const error=document.getElementById('webgl-error')!;error.hidden=false;
   error.innerHTML='<h2>暂时无法展开三维地图</h2><p>此游戏需要 WebGL2。请启用浏览器硬件加速，或使用支持 WebGL2 的较新浏览器。你的已有存档不会被覆盖。</p><button id="retry">重新加载</button>';
@@ -60,7 +86,7 @@ function frame(now:number){
   if(!document.hidden&&view){
     simulation.advance(delta);view.render();
     frames.push(delta*1000);if(frames.length>180)frames.shift();
-    if(now-lastUI>160){ui.update(world);lastUI=now;}
+    if(now-lastUI>160){refresh();lastUI=now;}
   }
   requestAnimationFrame(frame);
 }
@@ -71,7 +97,7 @@ window.addEventListener('pagehide',()=>{if(view)store();});
 document.addEventListener('keydown',e=>{
   if(e.target instanceof HTMLElement&&(e.target.matches('input,textarea,select,button,a')||e.target.isContentEditable))return;
   if(document.querySelector('dialog[open]'))return;
-  if(e.code==='Space'){e.preventDefault();world.clock.paused=!world.clock.paused;simulation.resetElapsed();ui.update(world);}
+  if(e.code==='Space'){e.preventDefault();world.clock.paused=!world.clock.paused;simulation.resetElapsed();refresh();}
   if(e.code==='Home'){e.preventDefault();view?.resetCamera();select(null);}
   if(e.code==='Escape')select(null);
 });
@@ -84,6 +110,6 @@ if(import.meta.env.PROD&&'serviceWorker'in navigator){
 if(new URLSearchParams(location.search).has('diagnostics')){
   Object.defineProperty(window,'__ALONGLINE__',{value:{snapshot(){
     syncCamera();const sorted=[...frames].sort((a,b)=>a-b);
-    return {world:structuredClone(world),render:view?.stats(),performance:{samples:frames.length,medianFrameMs:sorted[Math.floor(sorted.length/2)]??0,p95FrameMs:sorted[Math.floor(sorted.length*.95)]??0},webgl:view?.renderer.getContext().getParameter(WebGL2RenderingContext.RENDERER)};
+    return {world:structuredClone(world),editor:structuredClone(editor),line:deploymentReadiness(world),render:view?.stats(),performance:{samples:frames.length,medianFrameMs:sorted[Math.floor(sorted.length/2)]??0,p95FrameMs:sorted[Math.floor(sorted.length*.95)]??0},webgl:view?.renderer.getContext().getParameter(WebGL2RenderingContext.RENDERER)};
   }},writable:false});
 }

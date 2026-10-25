@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "savedAt": "2026-10-25T16:44:00.000Z",
+  "world": {
+    "map": { "id": "coastal-valley", "version": 1, "seed": 72103 },
+    "clock": { "tick": 20, "minutes": 482, "paused": true, "speed": 1 },
+    "economy": { "balance": 100000, "ledger": [] },
+    "towns": {
+      "town-shiokou": { "level": 1 },
+      "town-aokawa": { "level": 1 },
+      "town-kaede": { "level": 1 }
+    },
+    "selected": "B",
+    "camera": { "position": [148, 145, 180], "target": [0, 0, -3] }
+  }
+}

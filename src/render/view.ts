@@ -3,6 +3,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from '../config';
 import { STATIONS, TOWNS, type StationId } from '../world/map';
 import { DEFAULT_CAMERA, type CameraState } from '../world/state';
+import type { WorldState } from '../world/state';
+import { NODES, nearestNode, type NodeId, type EditorState } from '../world/railway';
+import { previewTrack } from '../simulation/construction';
+import { createRailwayModels, disposeGeometry } from './railway';
 import { makeLandscape } from './landscape';
 import { batchStatic, box } from './models';
 export class WorldView {
@@ -13,6 +17,12 @@ export class WorldView {
   readonly labels = document.createElement('div');
   private labelObjects: { element: HTMLElement; point: THREE.Vector3 }[] = [];
   private proxies: THREE.Object3D[] = [];
+  private plots=new Map<StationId,THREE.Group>();
+  private railwayModels=new THREE.Group();
+  private preview=new THREE.Group();
+  private networkKey='';
+  private previewKey='';
+  private editor:EditorState={mode:'inspect',from:null,to:null};
   private selection: THREE.Mesh;
   private down = { x: 0, y: 0, time: 0 };
   private pointers = new Set<number>();
@@ -22,7 +32,7 @@ export class WorldView {
   private gesture = false;
   private resizeObserver: ResizeObserver;
   readonly modelInfo: { trees: number; houses: number };
-  constructor(readonly container: HTMLElement, onSelect: (id: StationId | null) => void, onCamera: () => void) {
+  constructor(readonly container: HTMLElement, onSelect: (id: StationId | null) => void, onCamera: () => void, onNode: (id:NodeId|null)=>void = ()=>{}) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     const gl=this.renderer.getContext();const ext=gl.getExtension('WEBGL_debug_renderer_info');
     const gpu=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):'';
@@ -54,7 +64,7 @@ export class WorldView {
       for(const x of [-6,6])for(let z=-2.4;z<=2.4;z+=1.6)box(plot,[.16,.07,.9],[x,.04,z],color);
       const sign=box(plot,[.27,4.8,.27],[0,2.4,0],'#8b8064');sign.castShadow=false;
       const panel=box(plot,[2.5,1.5,.25],[0,4.2,0],station.unlocked?'#eadfbd':'#bcbca4');panel.castShadow=false;
-      plots.add(plot);
+      const baked=batchStatic(plot);plots.add(baked);this.plots.set(station.id,baked);
       const proxy=new THREE.Mesh(new THREE.BoxGeometry(13,12,9),new THREE.MeshBasicMaterial({visible:false}));
       proxy.position.set(station.position[0],7,station.position[2]);proxy.userData.stationId=station.id;this.proxies.push(proxy);this.scene.add(proxy);
       const button=document.createElement('button');button.className=`station-pin ${station.unlocked?'':'locked'}`;
@@ -63,7 +73,14 @@ export class WorldView {
       button.addEventListener('click',()=>onSelect(station.id));
       this.addLabel(button,new THREE.Vector3(station.position[0],9,station.position[2]));
     }
-    this.scene.add(batchStatic(plots));
+    this.scene.add(plots);
+    this.scene.add(this.railwayModels,this.preview);
+    for(const node of NODES){
+      const button=document.createElement('button');button.className='node-pin';button.dataset.node=node.id;
+      button.setAttribute('aria-label',`选择轨道节点${node.name}`);button.title=node.name;button.innerHTML=`<span>${({'node-a':'A','node-b':'B','node-d':'D','node-c':'C','node-coast':'1','node-valley':'2','node-river':'3','node-forest':'4'} as Record<string,string>)[node.id]}</span><small>${node.name}</small>`;
+      button.addEventListener('click',()=>onNode(node.id));
+      this.addLabel(button,new THREE.Vector3(node.position[0],4.5,node.position[2]));
+    }
     for(const town of TOWNS){
       const label=document.createElement('div');label.className='town-label';
       label.innerHTML=`<span>${town.name}</span><small>${town.kind}</small>`;
@@ -94,7 +111,10 @@ export class WorldView {
       if(!this.gesture&&e.button===0&&Math.hypot(e.clientX-this.down.x,e.clientY-this.down.y)<6&&performance.now()-this.down.time<450){
         const r=canvas.getBoundingClientRect();const ray=new THREE.Raycaster();
         ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),this.camera);
-        const hit=ray.intersectObjects(this.proxies)[0];onSelect(hit?.object.userData.stationId??null);
+        if(this.editor.mode==='track'){
+          const point=ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-2.2),new THREE.Vector3());
+          onNode(point?nearestNode(point.toArray()):null);
+        }else{const hit=ray.intersectObjects(this.proxies)[0];onSelect(hit?.object.userData.stationId??null);}
       }
       if(this.pointers.size===0)this.gesture=false;
     });
@@ -134,6 +154,41 @@ export class WorldView {
     if(s)this.selection.position.set(s.position[0],2.25,s.position[2]);
     this.labels.querySelectorAll<HTMLButtonElement>('.station-pin').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.station===id)));
   }
+  syncRailway(world:WorldState,editor:EditorState){
+    const key=JSON.stringify(world.railway);
+    if(key!==this.networkKey){
+      this.networkKey=key;disposeGeometry(this.railwayModels);this.scene.remove(this.railwayModels);
+      this.railwayModels=createRailwayModels(world.railway);this.scene.add(this.railwayModels);
+      this.plots.forEach((plot,id)=>{plot.visible=!world.railway.stations[id];});
+      this.labels.querySelectorAll<HTMLButtonElement>('.station-pin').forEach(b=>{
+        const id=b.dataset.station as StationId;const built=world.railway.stations[id];
+        b.classList.toggle('built',!!built);b.querySelector('.pin-caption')!.textContent=built?built.name:STATIONS.find(s=>s.id===id)!.unlocked?'候选站位':'尚未开放';
+        b.setAttribute('aria-label',`选择${built?.name??STATIONS.find(s=>s.id===id)!.name}${built?'':'候选站位'}`);
+      });
+      this.renderer.shadowMap.needsUpdate=true;this.dirty=true;
+    }
+    this.editor={...editor};this.labels.dataset.mode=editor.mode;
+    const pkey=JSON.stringify([key,world.economy.balance,editor]);
+    if(pkey!==this.previewKey){
+      this.previewKey=pkey;this.preview.traverse(o=>{if((o instanceof THREE.Line||o instanceof THREE.Mesh)&&!Array.isArray(o.material))o.material.dispose();});disposeGeometry(this.preview);this.preview.clear();this.dirty=true;
+      this.labels.querySelectorAll<HTMLButtonElement>('.node-pin').forEach(b=>{
+        b.setAttribute('aria-pressed',String(b.dataset.node===editor.from||b.dataset.node===editor.to));
+      });
+      if(editor.mode==='track'){
+        const plan=previewTrack(world,editor.from,editor.to);
+        if(plan.path&&plan.path.points.length>1){
+          const geo=new THREE.BufferGeometry().setFromPoints(plan.path.points.map(p=>new THREE.Vector3(p[0],2.85,p[2])));
+          const color=plan.ok?'#426f50':plan.missing.length?'#b87855':'#759285';
+          for(let i=1;i<plan.path.points.length;i++){
+            const a=plan.path.points[i-1],b=plan.path.points[i],dx=b[0]-a[0],dz=b[2]-a[2];
+            const ribbon=new THREE.Mesh(new THREE.BoxGeometry(.65,.04,Math.hypot(dx,dz)),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.6,depthTest:false}));
+            ribbon.position.set((a[0]+b[0])/2,2.8,(a[2]+b[2])/2);ribbon.rotation.y=Math.atan2(dx,dz);ribbon.renderOrder=9;this.preview.add(ribbon);
+          }
+          const line=new THREE.Line(geo,new THREE.LineDashedMaterial({color:plan.ok?'#fff3bd':'#f3d3ae',dashSize:1.2,gapSize:.6,depthTest:false}));line.computeLineDistances();line.renderOrder=10;this.preview.add(line);
+        }
+      }
+    }
+  }
   render(){
     this.controls.update();this.clampTarget();
     if(!this.dirty)return;
@@ -147,5 +202,5 @@ export class WorldView {
     this.renderer.render(this.scene,this.camera);
     this.renderedFrames++;this.paintMs.push(performance.now()-started);if(this.paintMs.length>120)this.paintMs.shift();
   }
-  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
+  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
 }

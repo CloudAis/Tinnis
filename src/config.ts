@@ -1,7 +1,7 @@
 export const CONFIG = {
   initialFunds: 100_000,
-  stationCosts: { A: 8_000, B: 8_000, D: 8_000 },
-  trackCosts: { AB: 12_000, BD: 8_000 },
+  stationCosts: { A: 8_000, B: 8_000, D: 8_000, C: 8_000 },
+  trackCosts: { AB: 12_000, BD: 8_000, BC: 6_000 },
   vehicles: {
     light: { price: 22_000, capacity: 24, dailyCost: 600, mileageFactor: 1 },
     large: { price: 38_000, capacity: 48, dailyCost: 1_000, mileageFactor: 1.6 },

@@ -25,7 +25,7 @@ try{
     const s=await snap();assert.equal(s.world.economy.balance,100000);assert.equal(Object.keys(s.world.towns).length,3);
     assert.equal(await page.locator('.town-label').count(),3);assert.equal(await page.locator('.station-pin').count(),3);
     assert.ok(s.render.trees>100);assert.ok(s.render.houses>=25);assert.equal(await page.locator('#webgl-error').isVisible(),false);
-    await page.screenshot({path:'artifacts/stage-1-desktop.png'});
+    await page.screenshot({path:'artifacts/regression-desktop.png'});
   })();
   await check('candidate selection, B passing berths, locked D, cancel',async()=>{
     await page.locator('[data-station="B"]').click();assert.equal((await snap()).world.selected,'B');
@@ -83,7 +83,7 @@ try{
     await context.setOffline(true);await page.reload();await ready();assert.equal((await snap()).world.selected,'B');await context.setOffline(false);
   })();
   await page.locator('#home-view').click();await page.waitForTimeout(600);
-  await page.screenshot({path:'artifacts/stage-1-desktop.png'});
+  await page.screenshot({path:'artifacts/regression-desktop.png'});
   const frameIntervals=await page.evaluate(()=>new Promise(resolve=>{
     const times=[];let last=performance.now();
     function sample(now){times.push(now-last);last=now;if(times.length<90)requestAnimationFrame(sample);else resolve(times.slice(5).sort((a,b)=>a-b));}
@@ -105,9 +105,9 @@ try{
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await mobile.waitForTimeout(500);
     const after=await mobile.evaluate(()=>window.__ALONGLINE__.snapshot().world.camera);assert.notDeepEqual(after,before);
     await mobile.locator('#pause').tap();const paused=await mobile.evaluate(()=>window.__ALONGLINE__.snapshot().world.clock.minutes);await mobile.waitForTimeout(400);assert.equal(await mobile.evaluate(()=>window.__ALONGLINE__.snapshot().world.clock.minutes),paused);
-    await mobile.locator('#home-view').tap();await mobile.waitForTimeout(300);await mobile.screenshot({path:'artifacts/stage-1-mobile.png'});
+    await mobile.locator('#home-view').tap();await mobile.waitForTimeout(300);await mobile.screenshot({path:'artifacts/regression-mobile.png'});
   })();
   await check('no browser JavaScript errors',async()=>assert.deepEqual(errors,[]))();
   const report={at:new Date().toISOString(),browser:await browser.version(),viewport:{width:1440,height:1000},gpu,checks:results,performance,errors};
-  await writeFile('artifacts/browser-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify({checks:results.length,performance:performance.performance,render:performance.render,gpu},null,2));
+  await writeFile('artifacts/regression-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify({checks:results.length,performance:performance.performance,render:performance.render,gpu},null,2));
 }finally{await browser?.close();server.kill();}

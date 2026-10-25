@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { EDGES, edgePoints } from '../world/railway';
 import { MAP, STATIONS, TOWNS, seededRandom } from '../world/map';
 import { batchStatic, box, createHouse, createStationHouse, createTree, cylinder, material } from './models';
 export const RIVER_POINTS = [[20,-68],[12,-44],[16,-27],[10,-10],[19,7],[11,27],[16,43],[10,65]];
@@ -94,7 +95,12 @@ export function makeLandscape() {
     const awayTown=TOWNS.every(t=>Math.hypot(x-t.position[0],z-t.position[2])>21);
     const awayStation=STATIONS.every(s=>Math.hypot(x-s.position[0],z-s.position[2])>10);
     const awayRiver=Math.abs(x-(12+Math.sin(z*.1)*5))>10;
-    if(!awayTown||!awayStation||!awayRiver||x<-35&&z<-25&&z>-49||x<-65&&z>17)continue;
+    const clearRail=EDGES.filter(e=>e.unlocked).every(e=>{
+      const [a,b]=edgePoints(e.id);const dx=b[0]-a[0],dz=b[2]-a[2];
+      const t=THREE.MathUtils.clamp(((x-a[0])*dx+(z-a[2])*dz)/(dx*dx+dz*dz),0,1);
+      return Math.hypot(x-a[0]-dx*t,z-a[2]-dz*t)>5;
+    });
+    if(!clearRail||!awayTown||!awayStation||!awayRiver||x<-35&&z<-25&&z>-49||x<-65&&z>17)continue;
     const tree=createTree(Math.floor(random()*9),.6+random()*.65);tree.position.set(x,2,z);g.add(tree);trees++;
   }
   // Fine surf strokes are geometry too: no remote textures.
