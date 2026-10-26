@@ -1,3 +1,4 @@
+import { guideIndex,syncJourney } from './world/journey';
 import { Soundscape } from './audio/soundscape';
 import { setPresentation,type PresentationState } from './world/presentation';
 import { describeUpgrade,executeUpgrade,type UpgradeCommand } from './simulation/development';
@@ -12,11 +13,11 @@ import { describeCommand, executeCommand, deploymentReadiness, type Command } fr
 import { Simulation } from './simulation/clock';
 import { createWorld, type Speed } from './world/state';
 import { type StationId } from './world/map';
-import { decodeSave, encodeSave, readLocal, writeLocal } from './storage/save';
+import { decodeSave, encodeSave, readLocal, readLocalStatus,readRecovery, writeLocal } from './storage/save';
 
 let world=createWorld();
 let initialNotice='';
-try { const saved=readLocal();if(saved){world=saved.world;initialNotice='已回到上次停留的沿线时光。';} } catch(e){initialNotice=`${(e as Error).message} 将使用初始世界，原存档保留至下次成功保存。`;}
+try { const status=readLocalStatus();if(status.save){world=status.save.world;initialNotice=status.recovered?'主存档损坏，已回到有效备份。建议导出备份。':'已回到上次停留的沿线时光。';} } catch(e){initialNotice=`${(e as Error).message} 将使用初始世界，原存档保留至下次成功保存。`;}
 let view:WorldView|undefined;
 let editor:EditorState=newEditor();
 let pending:Command|null=null;
@@ -25,7 +26,7 @@ let pendingUpgrade:UpgradeCommand|null=null;
 let saveBlocked=!!initialNotice&&initialNotice.includes('初始世界');
 const simulation=new Simulation(world);
 const soundscape=new Soundscape();soundscape.reset(world);
-function refresh(){view?.syncRailway(world,editor);ui.update(world,editor);const a=soundscape.stats();document.getElementById('sound-state')!.textContent=a.unavailable?'当前浏览器未能启用声音':a.state==='locked'?'首次操作后启用声音':world.presentation.muted?'已总静音':'行车 · 到站 · 环境声已启用';}
+function refresh(){syncJourney(world);view?.syncRailway(world,editor);ui.update(world,editor);const a=soundscape.stats();document.getElementById('sound-state')!.textContent=a.unavailable?'当前浏览器未能启用声音':a.state==='locked'?'首次操作后启用声音':world.presentation.muted?'已总静音':'行车 · 到站 · 环境声已启用';}
 function select(id:StationId|null){
   if(id!==null)editor.mode='inspect';
   else if(editor.mode==='track'){editor.from=null;editor.to=null;}
@@ -53,9 +54,9 @@ function commitTrain(c:TrainCommand){const before=world.presentation.cameraMode;
 function present(p:Partial<PresentationState>){const d=setPresentation(world,p);if(!d.ok){ui.toast(d.message,true);return;}if(p.cameraMode==='overview')view?.resetCamera();soundscape.update(world);refresh();store();}
 function syncCamera(){if(view)world.camera=view.getCamera();}
 function store(manual=false){
-  if(saveBlocked&&!manual)return;
-  try{syncCamera();writeLocal(world);saveBlocked=false;ui.saved(`已保存 · ${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}`);if(manual)ui.toast('进度已保存，小镇会在这里等你。');}
-  catch{ui.saved('本地保存不可用');ui.toast('无法写入浏览器存储，请导出 JSON 备份。',true);}
+  if(saveBlocked&&!manual)return false;
+  try{syncCamera();writeLocal(world);saveBlocked=false;ui.saved(`已保存 · ${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}`);if(manual)ui.toast('进度已保存，小镇会在这里等你。');return true;}
+  catch{ui.saved('本地保存不可用');ui.toast('无法写入浏览器存储，请导出 JSON 备份。',true);return false;}
 }
 function restore(raw:string){
   const saved=decodeSave(raw); // Atomic validation before replacing any live state.
@@ -66,7 +67,15 @@ const ui=new UI(document.getElementById('app')!,{
   pause(){world.clock.paused=!world.clock.paused;simulation.resetElapsed();refresh();},
   speed(n:Speed){world.clock.speed=n;simulation.resetElapsed();refresh();},
   select,
-  mode(mode){editor.mode=mode;if(['track','line'].includes(mode)&&['follow','passenger'].includes(world.presentation.cameraMode)){setPresentation(world,{cameraMode:'overview'});view?.resetCamera();}refresh();},
+  guide(action){
+    if(action==='skip')world.journey.skipped=true;
+    else if(action==='restart')world.journey.skipped=false;
+    else{const i=guideIndex(world);if(i===0||i===1)select(i===0?'A':'B');else{const mode=i===2?'track':i===3||i===4?'train':i===5?'passengers':i===6?'business':'train';editor.mode=mode;if(mode==='passengers')world.journey.viewed.waiting=true;if(mode==='business')world.journey.viewed.business=true;document.querySelector('.sidebar')!.classList.remove('collapsed');}}
+    refresh();document.getElementById('journey-guide')!.scrollIntoView({block:'nearest'});store();
+  },
+  newGame(){if(!store(true))return;restore(encodeSave(createWorld()));if(store())ui.toast('新旅程已开始，上次有效进度可在存档面板恢复。');},
+  recover(solvent){try{const saved=readRecovery(solvent);if(!saved){ui.toast('还没有可用恢复点，请导入备份或出售安全空车恢复资金。',true);return;}restore(JSON.stringify(saved));if(store())ui.toast(solvent?'已回到最近正余额存档，时间与账目一并回退。':'已恢复上次有效存档。');}catch(e){ui.toast((e as Error).message,true);}},
+  mode(mode){editor.mode=mode;if(mode==='passengers')world.journey.viewed.waiting=true;if(mode==='business')world.journey.viewed.business=true;if(['track','line'].includes(mode)&&['follow','passenger'].includes(world.presentation.cameraMode)){setPresentation(world,{cameraMode:'overview'});view?.resetCamera();}refresh();},
   endpoint(slot,id){editor[slot]=id;if(slot==='from'&&!id)editor.to=null;refresh();},
   command:request,
   trainCommand:requestTrain,
@@ -82,7 +91,7 @@ const ui=new UI(document.getElementById('app')!,{
     const link=document.createElement('a');link.href=url;link.download='沿线小镇-进度.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);ui.toast('已导出进度文件。');
   },
   async import(file){
-    try{if(file.size>8_000_000)throw new Error('存档文件过大。');restore(await file.text());store();ui.toast('导入成功，欢迎回到沿线。');}
+    try{if(file.size>8_000_000)throw new Error('存档文件过大。');restore(await file.text());if(store())ui.toast('导入成功，欢迎回到沿线。');}
     catch(e){ui.toast((e as Error).message,true);}
   },
 });
@@ -112,7 +121,7 @@ function frame(now:number){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-setInterval(()=>{if(view&&!document.hidden)store();},15_000);
+setInterval(()=>{if(view&&!document.hidden)store();},60_000);
 document.addEventListener('visibilitychange',()=>{soundscape.setHidden(document.hidden);previous=performance.now();simulation.resetElapsed();if(document.hidden&&view)store();});
 window.addEventListener('pagehide',()=>{if(view)store();soundscape.dispose();});
 document.addEventListener('pointerdown',e=>{if(e.isTrusted)void soundscape.unlock(world);},{capture:true});

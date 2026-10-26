@@ -16,7 +16,8 @@
     "test:dispatch": "node tests/dispatch-browser.mjs",
     "test:business": "node tests/business-browser.mjs",
     "test:passengers": "node tests/passenger-browser.mjs",
-    "verify": "npm run check && npm test && npm run build && npm run test:e2e && npm run test:train && npm run test:passengers && npm run test:business && npm run test:dispatch && npm run test:growth && npm run test:travel"
+    "verify": "npm run check && npm test && npm run build && npm run test:e2e && npm run test:train && npm run test:passengers && npm run test:business && npm run test:dispatch && npm run test:growth && npm run test:travel && npm run test:recovery",
+    "test:recovery": "node tests/recovery-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

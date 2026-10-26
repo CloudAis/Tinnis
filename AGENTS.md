@@ -1,7 +1,7 @@
 # 沿线小镇 · 持续开发约定
 
 - 在本仓库继续开发，不另建 worktree。先读 PLAN.md 和 PROGRESS.md，只执行用户指定阶段。
-- Node.js 24+；`npm ci` 安装，`npm run dev -- --host 0.0.0.0` 启动，`npm run check` 类型检查，`npm test` 规则测试，`npm run build` 离线发行构建，`npm run test:e2e` 真实 Chromium 验证；`npm run test:travel` 旅行/声音专项；`npm run verify` 完整回归。
+- Node.js 24+；`npm ci` 安装，`npm run dev -- --host 0.0.0.0` 启动，`npm run check` 类型检查，`npm test` 规则测试，`npm run build` 离线发行构建，`npm run test:e2e` 真实 Chromium 验证；`npm run test:travel` 旅行/声音专项，`npm run test:recovery` 引导/备份/触控专项；`npm run verify` 完整回归。
 - 配置、稳定 ID、世界数据、固定步长模拟、Three.js 画面、DOM 界面、版本化存档分离。坐标：米，Y 向上，XZ 地面。费用、客流和时间不能依赖画面帧率。
 - 核心资源必须本地打包，不用运行时 CDN、远程字体或网络 API。资产优先程序化复用；不要无授权引入第三方美术。
 - 保留用户修改。每阶段同步保存格式与必要迁移，维护可执行测试；验证暂停、存档幂等和状态边界。不能以文档或空框架替代功能。
@@ -9,3 +9,5 @@
 - 收尾更新 PROGRESS.md、README 和必要的决策说明，保留可运行检查点，除非用户明确授权连续阶段，否则不自动进入下一阶段。连续阶段仍须逐个验收、更新记录并保存检查点。
 
 - 视角、天气、声音仅写 presentation/相机偏好，不重置模拟累积步长。无贴图材质合批统一几何属性；站牌纹理与音频节点按拥有者释放，禁止重复初始化音频上下文或补播读档历史到站音。
+
+- 保存先审计再写；60现实秒自动保存，保留有效备份与正余额恢复点。恢复回退完整世界，不清零欠款；无效导入与存储配额失败不得覆盖有效进度或被成功提示掩盖。

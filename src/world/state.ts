@@ -1,3 +1,4 @@
+import { newJourney,type JourneyState } from './journey';
 import { newPresentation,type PresentationState } from './presentation';
 import { newDevelopment,type DevelopmentState,type UpgradeReceipt } from './development';
 import { newFinance, type FinanceState, type Posting } from './finance';
@@ -10,6 +11,7 @@ export type Speed = 1 | 2 | 4;
 export interface CameraState { position: [number, number, number]; target: [number, number, number] }
 export interface LedgerEntry { id: string; amount: number; reason: string; tick: number; construction?: ConstructionReceipt; vehicle?: VehicleReceipt; posting?: Posting; upgrade?:UpgradeReceipt; minute?:number }
 export interface WorldState {
+  journey:JourneyState;
   presentation:PresentationState;
   map: { id: string; version: number; seed: number };
   clock: { tick: number; minutes: number; paused: boolean; speed: Speed };
@@ -25,6 +27,7 @@ export interface WorldState {
 export const DEFAULT_CAMERA: CameraState = { position: [148, 145, 180], target: [0, 0, -3] };
 export function createWorld(): WorldState {
   return {
+    journey:newJourney(),
     presentation:newPresentation(),
     map: { ...MAP },
     clock: { tick: 0, minutes: CONFIG.clock.startMinutes, paused: false, speed: 1 },

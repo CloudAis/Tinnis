@@ -127,6 +127,7 @@ export class WorldView {
       if(this.pointers.size>1)this.gesture=true;
       this.down={x:e.clientX,y:e.clientY,time:performance.now()};
     });
+    canvas.addEventListener('pointermove',e=>{if(this.pointers.has(e.pointerId)&&Math.hypot(e.clientX-this.down.x,e.clientY-this.down.y)>=6)this.gesture=true;});
     canvas.addEventListener('pointerup',e=>{
       this.pointers.delete(e.pointerId);
       if(this.controls.enabled&&!this.gesture&&e.button===0&&Math.hypot(e.clientX-this.down.x,e.clientY-this.down.y)<6&&performance.now()-this.down.time<450){

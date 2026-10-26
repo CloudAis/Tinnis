@@ -1,3 +1,4 @@
+import { syncJourney } from '../world/journey';
 import { stepDevelopment } from './development';
 import { allTrains } from '../world/fleet';
 import { stepFinance, settleCompleted,settleMovement } from './finance';
@@ -24,6 +25,7 @@ export class Simulation {
       stepPassengers(this.state);
       settleCompleted(this.state);
       stepDevelopment(this.state);
+      syncJourney(this.state);
       this.accumulator = Math.max(0, this.accumulator - step);
     }
   }

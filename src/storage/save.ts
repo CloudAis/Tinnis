@@ -1,3 +1,4 @@
+import { newJourney,syncJourney,validateJourney } from '../world/journey';
 import { newPresentation,validatePresentation } from '../world/presentation';
 import { newDevelopment } from '../world/development';
 import { copyUpgrade,validateDevelopment } from './development';
@@ -13,9 +14,9 @@ import { newRailway } from '../world/railway';
 import { CONFIG } from '../config';
 import { MAP, TOWNS } from '../world/map';
 import { isStationId, type WorldState } from '../world/state';
-export const SAVE_KEY = 'alongline-town.save.v8';
+export const SAVE_KEY = 'alongline-town.save.v9';
 export const LEGACY_SAVE_KEY = 'alongline-town.save.v1';
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 export interface SaveFile { schemaVersion: number; savedAt: string; world: WorldState }
 const fail = () => { throw new Error('存档内容不完整或数据越界，当前世界未更改。'); };
 const record = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -28,7 +29,7 @@ export function decodeSave(raw: string): SaveFile {
   let data: any;
   try { data = JSON.parse(raw); } catch { throw new Error('无法读取存档：不是有效的 JSON。'); }
   if (!record(data)) return fail();
-  if (![1, 2, 3, 4, 5, 6, 7, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
   const w = data.world;
   if (!record(w) || !record(w.map) || !record(w.clock) || !record(w.economy) || !record(w.towns) || !record(w.camera)) return fail();
   if (w.map.id !== MAP.id || w.map.version !== MAP.version || w.map.seed !== MAP.seed) throw new Error('存档地图不兼容。');
@@ -61,6 +62,7 @@ export function decodeSave(raw: string): SaveFile {
   const railway=validateRailway(data.schemaVersion===1?newRailway():w.railway,ledger,data.schemaVersion>=7&&w.development?.unlockedD===true);
   // Reconstruct only known fields; never merge arbitrary imported keys into live objects.
   const world:WorldState = {
+    journey:newJourney(),
     presentation:newPresentation(),
     map: { ...MAP }, clock: { tick: w.clock.tick, minutes: w.clock.minutes, speed: w.clock.speed, paused: w.clock.paused },
     economy: { balance: w.economy.balance, ledger },
@@ -82,13 +84,27 @@ export function decodeSave(raw: string): SaveFile {
   if(data.schemaVersion>=7)world.development=validateDevelopment(w.development,world);else world.development=newDevelopment(w.clock.minutes,world.passengers.completed.length);
   world.presentation=data.schemaVersion<8?newPresentation(world.fleet.follow):validatePresentation(w.presentation);
   if(['follow','passenger'].includes(world.presentation.cameraMode)!==world.fleet.follow) return fail();
+  if(data.schemaVersion>=9)world.journey=validateJourney(w.journey,world);else{world.journey.skipped=ledger.length>0;syncJourney(world);}
   return {schemaVersion:SCHEMA_VERSION,savedAt:data.savedAt,world};
 }
 export function encodeSave(world: WorldState): string {
   return JSON.stringify({ schemaVersion: SCHEMA_VERSION, savedAt: new Date().toISOString(), world }, null, 2);
 }
-export function readLocal(): SaveFile | null {
-  const raw = localStorage.getItem(SAVE_KEY) ?? localStorage.getItem('alongline-town.save.v7') ?? localStorage.getItem('alongline-town.save.v6') ?? localStorage.getItem('alongline-town.save.v5') ?? localStorage.getItem('alongline-town.save.v4') ?? localStorage.getItem('alongline-town.save.v3') ?? localStorage.getItem('alongline-town.save.v2') ?? localStorage.getItem(LEGACY_SAVE_KEY);
-  return raw ? decodeSave(raw) : null;
+// Keep the last validated generation separate; malformed imports never reach this layer.
+export const SOLVENT_KEY='alongline-town.save.solvent';
+export const BACKUP_KEY='alongline-town.save.last-valid';
+const LOCAL_KEYS=[SAVE_KEY,...[8,7,6,5,4,3,2,1].map(v=>`alongline-town.save.v${v}`)];
+export function readLocalStatus():{save:SaveFile|null;recovered:boolean}{
+ let error:unknown;
+ for(const key of (localStorage.getItem(SAVE_KEY)?[SAVE_KEY,BACKUP_KEY,...LOCAL_KEYS.slice(1)]:[...LOCAL_KEYS,BACKUP_KEY])){const raw=localStorage.getItem(key);if(!raw)continue;try{return {save:decodeSave(raw),recovered:!!error||key===BACKUP_KEY};}catch(e){error=e;}}
+ if(error)throw error;return {save:null,recovered:false};
 }
-export function writeLocal(world: WorldState) { localStorage.setItem(SAVE_KEY, JSON.stringify({schemaVersion:SCHEMA_VERSION,savedAt:new Date().toISOString(),world})); }
+export function readLocal():SaveFile|null{return readLocalStatus().save;}
+export function readRecovery(solvent=false):SaveFile|null{const raw=localStorage.getItem(solvent?SOLVENT_KEY:BACKUP_KEY);return raw?decodeSave(raw):null;}
+export function writeLocal(world:WorldState){
+ const raw=JSON.stringify({schemaVersion:SCHEMA_VERSION,savedAt:new Date().toISOString(),world});
+ decodeSave(raw); // Audit money, references, passengers and signal reservations before touching storage.
+ for(const key of LOCAL_KEYS){const previous=localStorage.getItem(key);if(!previous)continue;try{decodeSave(previous);}catch{continue;}localStorage.setItem(BACKUP_KEY,previous);break;}
+ if(world.economy.balance>0)localStorage.setItem(SOLVENT_KEY,raw);
+ localStorage.setItem(SAVE_KEY,raw);
+}
