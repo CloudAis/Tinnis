@@ -29,7 +29,7 @@ export interface RailwayState {
   tracks: Partial<Record<EdgeId, Purchase>>;
   line: { id: 'line-main'; name: string; stops: StationId[] };
 }
-export interface EditorState { mode: 'inspect' | 'track' | 'line' | 'train' | 'passengers'; from: NodeId | null; to: NodeId | null }
+export interface EditorState { mode: 'inspect' | 'track' | 'line' | 'train' | 'passengers' | 'business'; from: NodeId | null; to: NodeId | null }
 export const newEditor = (): EditorState => ({ mode: 'inspect', from: null, to: null });
 export const newRailway = (): RailwayState => ({ revision: 0, nextSerial: 1, stations: {}, tracks: {}, line: { id: 'line-main', name: '海风线', stops: ['A', 'B'] } });
 export const nodeById = (id: string) => NODES.find(n => n.id === id);

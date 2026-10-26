@@ -31,7 +31,7 @@ test('alighting preserves other destinations and other vehicles; repeat arrival 
   p.totals.accepted=15;p.totals.potential=15;p.nextBatchSerial=4;p.nextRideSerial=4;assert.equal(passengerStats(p).conserved,true);
   assert.equal(alight(p,'B','train-0001',600,1).length,1);assert.equal(p.onboard.length,2);assert.equal(p.onboard.find(b=>b.to==='D')!.count,5);assert.equal(alight(p,'B','train-0001',600,1).length,0);assert.equal(p.completed.length,1);assert.equal(p.completed[0].amount,160);assert.equal(passengerStats(p).conserved,true);
 });
-test('fare locks on boarding; arrival records unique completion and does not credit stage 5 money yet',()=>{
+test('fare locks on boarding; arrival records a unique completion before the unified finance settlement',()=>{
   const w=setup();add(w,4);board(w);const fare=CONFIG.fare.base;
   try{(CONFIG.fare as any).base=30;w.clock.minutes=580;w.passengers.lastDemandMinute=580;w.fleet.vehicle!.currentStation='B';alight(w.passengers,'B',w.fleet.vehicle!.id,580,1);assert.equal(w.passengers.completed[0].fare,20);assert.equal(w.passengers.completed[0].amount,80);assert.equal(w.economy.balance,50000);}finally{(CONFIG.fare as any).base=fare;}
 });
@@ -46,7 +46,7 @@ test('two game days conserve accepted demand, never exceed 24, and saves continu
     const status=w.fleet.vehicle!.status;
     if(['running','braking','dwelling'].includes(status)&&!stages.has(status)&&w.passengers.nextRideSerial>1){stages.add(status);const old=structuredClone(w);w=decodeSave(encodeSave(w)).world;assert.deepEqual(w,old);sim=new Simulation(w);}
   }
-  assert.equal(stages.size,3);assert.ok(passengerStats(w.passengers).completed>0);assert.equal(w.economy.balance,50000);assert.equal(new Set(w.passengers.completed.map(e=>e.eventId)).size,w.passengers.completed.length);
+  assert.equal(stages.size,3);assert.ok(passengerStats(w.passengers).completed>0);assert.equal(w.economy.balance,100000+w.economy.ledger.reduce((n,e)=>n+e.amount,0));assert.equal(new Set(w.passengers.completed.map(e=>e.eventId)).size,w.passengers.completed.length);
   assert.deepEqual(decodeSave(encodeSave(w)).world,w);
 });
 test('station stop does not strand onboard passengers, unloads before any new boarding, and stops generating accepted demand',()=>{

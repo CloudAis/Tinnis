@@ -11,6 +11,7 @@
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "node tests/browser.mjs && node tests/construction-browser.mjs",
     "test:train": "node tests/train-browser.mjs",
+    "test:business": "node tests/business-browser.mjs",
     "test:passengers": "node tests/passenger-browser.mjs",
     "verify": "npm run check && npm test && npm run build && npm run test:e2e && npm run test:train && npm run test:passengers"
   },

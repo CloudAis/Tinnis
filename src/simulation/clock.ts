@@ -1,3 +1,4 @@
+import { stepFinance, settleCompleted } from './finance';
 import { stepPassengers } from './passengers';
 import { stepTrain, trainPose, type Pose } from './train';
 import { CONFIG } from '../config';
@@ -15,7 +16,9 @@ export class Simulation {
       this.state.clock.tick++;
       this.state.clock.minutes += step * CONFIG.clock.minutesPerSecond * this.state.clock.speed;
       stepTrain(this.state,step*CONFIG.clock.minutesPerSecond*this.state.clock.speed);
+      stepFinance(this.state);
       stepPassengers(this.state);
+      settleCompleted(this.state);
       this.accumulator = Math.max(0, this.accumulator - step);
     }
   }

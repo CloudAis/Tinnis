@@ -1,11 +1,19 @@
 import type { VehicleReceipt } from '../world/fleet';
 import type { ConstructionReceipt } from '../world/railway';
+import type { Posting } from '../world/finance';
 import type { WorldState } from '../world/state';
-// Future construction and trip-arrival events must use stable event IDs here.
-export function transact(state: WorldState, id: string, amount: number, reason: string, construction?: ConstructionReceipt, vehicle?: VehicleReceipt): boolean {
-  if (!id || !Number.isSafeInteger(amount) || state.economy.ledger.some(e => e.id === id)) return false;
-  if (state.economy.balance + amount < 0 || !Number.isSafeInteger(state.economy.balance + amount)) return false;
-  state.economy.balance += amount;
-  state.economy.ledger.push({ id, amount, reason, tick: state.clock.tick, ...(construction ? { construction: structuredClone(construction) } : {}), ...(vehicle ? { vehicle: structuredClone(vehicle) } : {}) });
-  return true;
+// Investment, income and cumulative operating costs all pass this integer-money boundary.
+export function transact(state:WorldState,id:string,amount:number,reason:string,construction?:ConstructionReceipt,vehicle?:VehicleReceipt,posting?:Posting):boolean {
+  if(!id||!Number.isSafeInteger(amount))return false;
+  const existing=state.economy.ledger.find(e=>e.id===id);
+  if(existing){
+    if(!posting?.cumulative||!existing.posting?.cumulative||existing.posting.category!==posting.category||existing.posting.day!==posting.day)return false;
+    const delta=amount-existing.amount;
+    if(delta>0||!Number.isSafeInteger(state.economy.balance+delta))return false;
+    existing.amount=amount;existing.tick=state.clock.tick;existing.minute=state.clock.minutes;state.economy.balance+=delta;return true;
+  }
+  if(!Number.isSafeInteger(state.economy.balance+amount)||state.economy.balance+amount<0&&!posting?.operating)return false;
+  const inferred:Posting={category:amount<0?'investment':'asset-sale',day:Math.floor((state.clock.minutes+1e-7)/1440)};
+  state.economy.balance+=amount;
+  state.economy.ledger.push({id,amount,reason,tick:state.clock.tick,minute:state.clock.minutes,posting:posting??inferred,...(construction?{construction:structuredClone(construction)}:{}),...(vehicle?{vehicle:structuredClone(vehicle)}:{})});return true;
 }

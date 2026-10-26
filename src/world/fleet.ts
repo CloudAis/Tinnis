@@ -8,6 +8,7 @@ export interface Train {
   status:TrainStatus; route:RouteSnapshot|null; pendingStops:StationId[]|null;
   direction:1|-1; distance:number; legElapsed:number; dwellRemaining:number;
   currentStation:StationId|null; stopRequested:boolean;
+  totalDistance:number;
   tripSerial:number; legsCompleted:number; arrivalSerial:number;
 }
 export interface FleetState { revision:number; nextSerial:number; follow:boolean; vehicle:Train|null }

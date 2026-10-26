@@ -14,6 +14,7 @@ export const CONFIG = {
     tourismWeights: [.05,.05,.05,.05,.05,.1,.3,.7,1.4,2,2.5,2.5,2.3,2.4,2.5,2,1.8,.9,.6,.3,.2,.1,.05,.05],
   },
   patienceMinutes: 240, demolitionRefund: 0.5, vehicleRefund: 0.6,
+  operating: { mileagePerKilometer: 180 },
   maintenance: { stationDaily: 80, trackPerSegmentDaily: 30 },
   clock: { stepSeconds: 0.05, minutesPerSecond: 2, dayMinutes: 1_440, startMinutes: 480 },
   journey: { abMinutes: 90, dwellMinutes: 10, brakeMinutes: 10, turnMinutes: 0.5, permissionMinutes: 0.5 },

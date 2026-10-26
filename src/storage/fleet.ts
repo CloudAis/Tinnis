@@ -54,6 +54,7 @@ export function validateFleet(raw:unknown,w:WorldState,ledger:LedgerEntry[]):Fle
       if(!['running','braking'].includes(v.status)||JSON.stringify(v.pendingStops)!==JSON.stringify(w.railway.line.stops))return bad();
     }else if(JSON.stringify(route.stops)!==JSON.stringify(w.railway.line.stops))return bad();
   }
-  result.vehicle={...active,status:v.status,route,pendingStops:v.pendingStops===null?null:[...v.pendingStops],direction:v.direction,distance:v.distance,legElapsed:v.legElapsed,dwellRemaining:v.dwellRemaining,currentStation:v.currentStation,stopRequested:v.stopRequested,tripSerial:v.tripSerial,legsCompleted:v.legsCompleted,arrivalSerial:v.arrivalSerial};
+  if(!finite(v.totalDistance)||v.totalDistance<0)return bad();
+  result.vehicle={...active,totalDistance:v.totalDistance,status:v.status,route,pendingStops:v.pendingStops===null?null:[...v.pendingStops],direction:v.direction,distance:v.distance,legElapsed:v.legElapsed,dwellRemaining:v.dwellRemaining,currentStation:v.currentStation,stopRequested:v.stopRequested,tripSerial:v.tripSerial,legsCompleted:v.legsCompleted,arrivalSerial:v.arrivalSerial};
   return result;
 }

@@ -22,7 +22,7 @@ export function validatePassengers(raw:unknown,w:WorldState):PassengerState {
   }
   function rider(b:any):RidingBatch {
     const base=batch(b),type=vehicles.get(b.vehicleId);
-    if(typeof b.rideId!=='string'||!/^ride-[1-9]\d*$/.test(b.rideId)||!integer(Number(b.rideId.slice(5)))||Number(b.rideId.slice(5))>=p.nextRideSerial||rides.has(b.rideId)||!type||b.count>CONFIG.vehicles[type].capacity||!finite(b.boardedAt)||b.boardedAt<b.arrivedAt||b.boardedAt>w.clock.minutes+1e-6||!integer(b.fare)||b.fare<CONFIG.fare.min||b.fare>CONFIG.fare.max)return bad();
+    if(typeof b.rideId!=='string'||!/^ride-[1-9]\d*$/.test(b.rideId)||!integer(Number(b.rideId.slice(5)))||Number(b.rideId.slice(5))>=p.nextRideSerial||rides.has(b.rideId)||!type||b.count>CONFIG.vehicles[type].capacity||!finite(b.boardedAt)||b.boardedAt<b.arrivedAt||b.boardedAt>w.clock.minutes+1e-6||!integer(b.fare)||b.fare<CONFIG.fare.min||b.fare>CONFIG.fare.max*4)return bad();
     rides.add(b.rideId);return {...base,rideId:b.rideId,vehicleId:b.vehicleId,boardedAt:b.boardedAt,fare:b.fare};
   }
   if(!Array.isArray(raw.waiting)||!Array.isArray(raw.onboard)||!Array.isArray(raw.completed))return bad();
@@ -40,6 +40,8 @@ export function validatePassengers(raw:unknown,w:WorldState):PassengerState {
     if(b.eventId!==`completion:${item.rideId}`||!finite(b.completedAt)||b.completedAt<item.boardedAt||b.completedAt>w.clock.minutes+1e-6||!integer(b.tripSerial)||b.tripSerial<1||!Number.isSafeInteger(b.amount)||b.amount!==item.count*item.fare)return bad();
     return {...item,eventId:b.eventId,completedAt:b.completedAt,tripSerial:b.tripSerial,amount:b.amount};
   });
+  if(!Array.isArray(raw.released))return bad();
+  p.released=raw.released.map((b:any)=>{const item=rider(b);if(!station(b.at)||!finite(b.releasedAt)||b.releasedAt<b.boardedAt||b.releasedAt>w.clock.minutes+1e-6||!['returned','cancelled'].includes(b.reason))return bad();return {...item,at:b.at,releasedAt:b.releasedAt,reason:b.reason};});
   const stats=passengerStats(p),v=w.fleet.vehicle;
   if(!stats.conserved||p.totals.potential!==p.totals.accepted+p.totals.noService+p.totals.priceRejected||p.nextBatchSerial-1>p.totals.accepted||p.nextRideSerial-1!==rides.size||p.nextRideSerial-1>p.totals.accepted||stats.onboard>(v?CONFIG.vehicles[v.type].capacity:0)||stats.onboard>0&&v?.status==='depot')return bad();
   return p;

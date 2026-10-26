@@ -1,3 +1,4 @@
+import { quoteFare, priceAcceptance } from './finance';
 import { CONFIG } from '../config';
 import { STATIONS, type StationId } from '../world/map';
 import { DEMAND_PAIRS, pairKey, onboardCount, type PassengerState, type CompletionEvent } from '../world/passengers';
@@ -28,9 +29,10 @@ export function generateDemand(w:WorldState){
       const count=Math.floor(p.carry[key]+1e-9);p.carry[key]=Math.max(0,p.carry[key]-count);if(!count)continue;
       p.totals.potential+=count;
       if(!hasDirectService(w,pair.from,pair.to)){p.totals.noService+=count;continue;}
-      // Price rejection is intentionally zero until stage 5; it has its own counter already.
-      p.totals.accepted+=count;
-      p.waiting.push({id:`batch-${p.nextBatchSerial++}`,from:pair.from,to:pair.to,arrivedAt:Math.min(minute+1,w.clock.minutes),count});
+      const carried=(w.finance.priceCarry[key]??0)+count*priceAcceptance(w.finance.fare);
+      const accepted=Math.floor(carried+1e-9);w.finance.priceCarry[key]=Math.max(0,carried-accepted);p.totals.priceRejected+=count-accepted;if(!accepted)continue;
+      p.totals.accepted+=accepted;
+      p.waiting.push({id:`batch-${p.nextBatchSerial++}`,from:pair.from,to:pair.to,arrivedAt:Math.min(minute+1,w.clock.minutes),count:accepted});
     }
   }
 }
@@ -48,7 +50,7 @@ export function alight(p:PassengerState,station:StationId,vehicleId:string,now:n
   p.completed.push(...events);return events;
 }
 export function board(w:WorldState){
-  const v=w.fleet.vehicle;if(!v?.route||!v.currentStation||v.stopRequested||!['ready','dwelling'].includes(v.status))return;
+  const v=w.fleet.vehicle;if(w.economy.balance<=0||!v?.route||!v.currentStation||v.stopRequested||!['ready','dwelling'].includes(v.status))return;
   const index=v.route.stops.indexOf(v.currentStation),forward=index===0||index!==v.route.stops.length-1&&v.direction===1;
   const destinations=forward?v.route.stops.slice(index+1):v.route.stops.slice(0,index);
   let space=CONFIG.vehicles[v.type].capacity-onboardCount(w,v.id);
@@ -59,7 +61,7 @@ export function board(w:WorldState){
     if(space<=0)break;
     if(b.from!==v.currentStation||!destinations.includes(b.to))continue;
     const count=Math.min(space,b.count);
-    p.onboard.push({...b,count,rideId:`ride-${p.nextRideSerial++}`,vehicleId:v.id,boardedAt:w.clock.minutes,fare:CONFIG.fare.base});
+    p.onboard.push({...b,count,rideId:`ride-${p.nextRideSerial++}`,vehicleId:v.id,boardedAt:w.clock.minutes,fare:quoteFare(w,b.from,b.to)});
     b.count-=count;space-=count;
   }
   p.waiting=p.waiting.filter(b=>b.count>0);

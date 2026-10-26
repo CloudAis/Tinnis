@@ -1,3 +1,4 @@
+import { setBusiness } from './simulation/finance';
 import { passengerStats } from './world/passengers';
 import { describeTrainCommand, executeTrainCommand, type TrainCommand } from './simulation/train';
 import './ui/style.css';
@@ -62,6 +63,7 @@ const ui=new UI(document.getElementById('app')!,{
   endpoint(slot,id){editor[slot]=id;if(slot==='from'&&!id)editor.to=null;refresh();},
   command:request,
   trainCommand:requestTrain,
+  business(fare,interval,revision){const result=setBusiness(world,fare,interval,revision);ui.toast(result.message,!result.ok);refresh();if(result.ok)store();},
   confirm(){const c=pending,t=pendingTrain;pending=null;pendingTrain=null;ui.closeConfirmation();if(c)commit(c);if(t)commitTrain(t);},
   focus(id){world.fleet.follow=false;view?.focus(id);},home(){world.fleet.follow=false;view?.resetCamera();select(null);},zoom(f){view?.zoom(f);},
   save(){store(true);},

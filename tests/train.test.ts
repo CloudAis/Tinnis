@@ -21,7 +21,7 @@ test('three complete round trips, exact 90 minute legs and 10 minute station dwe
     if(v.status==='running'&&before==='requesting'){if(lastArrival)assert.ok(Math.abs(w.clock.minutes-lastArrival-10)<1e-6);lastDeparture=w.clock.minutes;}
     if(v.legsCompleted!==legs){assert.ok(Math.abs(w.clock.minutes-lastDeparture-90)<1e-6);lastArrival=w.clock.minutes;visits.push(v.currentStation!);count++;}
   }
-  assert.equal(count,6);assert.deepEqual(visits,['B','A','B','A','B','A']);assert.equal(w.economy.balance,50000);
+  assert.equal(count,6);assert.deepEqual(visits,['B','A','B','A','B','A']);assert.equal(w.economy.balance,100000+w.economy.ledger.reduce((n,e)=>n+e.amount,0));
 });
 test('pause and 30/60/120 FPS give matching train state at 1/2/4x; smooth pose stays on track',()=>{
   for(const speed of [1,2,4] as const){const snapshots=[];for(const fps of [30,60,120]){

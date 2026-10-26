@@ -1594,3 +1594,5 @@ meter::-webkit-meter-bar { background:#e4e8d9;border:0; }meter::-webkit-meter-op
 #passenger-dashboard { border-top:1px solid #dce2d1;margin-top:19px;padding-top:16px; }.station-pax-status { color:#7e9870!important;font-size:10px; }
 .tool-tabs button { padding-left:3px;padding-right:3px; }
 @media(max-width:800px){.sidebar[data-tool=passengers]{max-height:43vh;}.pax-stats{grid-template-columns:repeat(4,1fr);gap:6px;}.pax-stats>div{padding:9px;}.pax-stats b{font-size:20px;}.mass-balance{font-size:9px;}.tool-tabs button{font-size:9px;padding-left:2px;padding-right:2px;}}
+/* Finance follows the existing paper notebook palette. */
+.finance-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.finance-grid div{padding:9px;background:#edf0e5;border-radius:5px}.finance-grid span{display:block;font-size:11px;color:#637466}.finance-grid b{font-size:16px;color:#365c4c}#base-fare,#target-interval{width:100%;padding:9px;background:#fffdf5;border:1px solid #ccd4c5;border-radius:4px;color:#365c4c}#business-live p{font-size:12px;line-height:1.6}.tool-tabs{flex-wrap:wrap}

@@ -1,3 +1,4 @@
+import { canDepart, recordDeparture } from './finance';
 import { onboardCount } from '../world/passengers';
 import { CONFIG } from '../config';
 import type { WorldState } from '../world/state';
@@ -41,8 +42,9 @@ export function describeTrainCommand(w:WorldState,c:TrainCommand) {
     return {ok:true,message:`购置${vehicleName(c.model)}，定员 ${CONFIG.vehicles[c.model].capacity} 人。`,amount:-cost};
   }
   if(!v)return fail('请先购置列车。');
-  if(c.type==='sell')return v.status==='depot'&&onboardCount(w)===0?{ok:true,message:'出售车库中的空车，返原购车价 60%。',amount:Math.floor(v.paid*CONFIG.vehicleRefund)}:fail('仅可出售已回库的空车。');
+  if(c.type==='sell')return ['depot','stopped'].includes(v.status)&&onboardCount(w)===0?{ok:true,message:'出售车库中的空车，返原购车价 60%。',amount:Math.floor(v.paid*CONFIG.vehicleRefund)}:fail('仅可出售车库或安全停站的空车。');
   if(c.type==='dispatch'){
+    if(w.economy.balance<=0)return fail('资金已耗尽，请先通过安全售车或拆除恢复资金。');
     if(!['depot','stopped'].includes(v.status))return fail('列车已经投入运行，不重复投放。');
     const p=deploymentReadiness(w);if(!p.ok)return fail(p.reason);
     return {ok:true,message:'列车已投放，按停站时间等待发车。',amount:0};
@@ -58,7 +60,7 @@ export function executeTrainCommand(w:WorldState,c:TrainCommand) {
   if(c.type==='buy'){
     const id=`train-${String(f.nextSerial).padStart(4,'0')}`,purchaseId=`fleet:buy:${f.nextSerial}`;
     if(!transact(w,purchaseId,d.amount,d.message,undefined,{kind:'buy',vehicleId:id,type:c.model,paid:-d.amount}))return {ok:false,message:'购车交易未完成。'};
-    f.vehicle={id,type:c.model,purchaseId,paid:-d.amount,status:'depot',route:null,pendingStops:null,direction:1,distance:0,legElapsed:0,dwellRemaining:0,currentStation:null,stopRequested:false,tripSerial:0,legsCompleted:0,arrivalSerial:0};f.nextSerial++;
+    f.vehicle={id,type:c.model,purchaseId,paid:-d.amount,totalDistance:0,status:'depot',route:null,pendingStops:null,direction:1,distance:0,legElapsed:0,dwellRemaining:0,currentStation:null,stopRequested:false,tripSerial:0,legsCompleted:0,arrivalSerial:0};f.nextSerial++;
   }else if(c.type==='sell'){
     if(!transact(w,`fleet:sell:${v!.id}`,d.amount,d.message,undefined,{kind:'sell',vehicleId:v!.id,purchaseId:v!.purchaseId}))return {ok:false,message:'售车已处理，不重复退款。'};
     f.vehicle=null;f.follow=false;
@@ -81,8 +83,10 @@ export function travelFraction(minutes:number) {
 export function stepTrain(w:WorldState,minutes:number) {
   const v=w.fleet.vehicle;if(!v?.route||v.status==='depot'||v.status==='stopped')return;
   if(v.status==='running'||v.status==='braking'){
+    const beforeDistance=v.distance;
     v.legElapsed=Math.min(CONFIG.journey.abMinutes,v.legElapsed+minutes);
     const fraction=travelFraction(v.legElapsed);v.distance=v.route.length*(v.direction===1?fraction:1-fraction);
+    v.totalDistance+=Math.abs(v.distance-beforeDistance);
     if(v.legElapsed>=CONFIG.journey.abMinutes-1e-7){
       v.distance=v.direction===1?v.route.length:0;v.currentStation=v.direction===1?v.route.stops.at(-1)!:v.route.stops[0];
       v.legsCompleted++;v.arrivalSerial++;v.status=v.stopRequested?'stopped':'dwelling';v.dwellRemaining=v.stopRequested?0:CONFIG.journey.dwellMinutes;
@@ -95,6 +99,8 @@ export function stepTrain(w:WorldState,minutes:number) {
   if(v.dwellRemaining<=1e-7){
     // A single train is granted the whole path; phase 6 will arbitrate competing requests.
     if(!v.route.edges.every(id=>w.railway.tracks[id])){v.status='requesting';return;}
+    if(canDepart(w,v.currentStation!)){v.status='requesting';return;}
+    recordDeparture(w,v.currentStation!,v.id);
     v.direction=v.currentStation===v.route.stops[0]?1:-1;
     v.currentStation=null;v.status='running';v.legElapsed=0;v.dwellRemaining=0;v.tripSerial++;return;
   }
