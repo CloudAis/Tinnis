@@ -1,3 +1,7 @@
+import { TravelCamera } from './travel-camera';
+import { Atmosphere } from './atmosphere';
+import { StationDetails } from './station-details';
+import type { CameraMode } from '../world/presentation';
 import { stationUnlocked } from '../simulation/development';
 import { createDevelopmentModels } from './development';
 import { allTrains } from '../world/fleet';
@@ -29,9 +33,12 @@ export class WorldView {
   private developmentKey='';
   private preview=new THREE.Group();
   private trainModels=new Map<string,THREE.Group>();
-  private trainKey='';
+  private selectedTrainId='';
   private crowd=new PlatformCrowd();
-  private following=false;
+  private travel!:TravelCamera;
+  private atmosphere:Atmosphere;
+  private details=new StationDetails();
+  private scenery:THREE.Group;
   private networkKey='';
   private previewKey='';
   private editor:EditorState={mode:'inspect',from:null,to:null};
@@ -59,12 +66,13 @@ export class WorldView {
     container.append(this.renderer.domElement);
     this.labels.className = 'map-labels'; container.append(this.labels);
     this.scene.fog = new THREE.Fog('#c5d7ca', 370, 700);
-    this.scene.add(new THREE.HemisphereLight('#fdf8e4','#8b9a80',2.2));
+    const ambient=new THREE.HemisphereLight('#fdf8e4','#8b9a80',2.2);this.scene.add(ambient);
     const sun = new THREE.DirectionalLight('#fff2cf',2.7);sun.position.set(-80,140,70);
     sun.castShadow = true;sun.shadow.mapSize.set(software?1024:2048,software?1024:2048);
     Object.assign(sun.shadow.camera,{left:-145,right:145,top:120,bottom:-120,near:5,far:360});
     sun.shadow.normalBias=.12;sun.shadow.bias=-.0002;this.scene.add(sun);
-    const landscape=makeLandscape();this.scene.add(landscape.scenery);
+    const landscape=makeLandscape();this.scenery=landscape.scenery;this.scene.add(landscape.scenery,this.details.group);
+    this.atmosphere=new Atmosphere(this.scene,this.renderer,sun,ambient);
     this.modelInfo={trees:landscape.trees,houses:landscape.sourceModels};
     // Candidate plot foundations are dashed survey markings, never constructed stations.
     const plots=new THREE.Group();
@@ -111,6 +119,7 @@ export class WorldView {
     this.controls.mouseButtons={LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
     this.controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
     this.controls.addEventListener('change',()=>{this.dirty=true;this.clampTarget();onCamera();});
+    this.travel=new TravelCamera(this.camera,this.controls,()=>[this.scenery,this.railwayModels,this.developmentModels,this.details.group,...[...this.trainModels].filter(([id])=>id!==this.selectedTrainId).map(([,model])=>model)]);
     this.setCamera(DEFAULT_CAMERA);
     const canvas=this.renderer.domElement;
     canvas.addEventListener('pointerdown',e=>{
@@ -120,7 +129,7 @@ export class WorldView {
     });
     canvas.addEventListener('pointerup',e=>{
       this.pointers.delete(e.pointerId);
-      if(!this.gesture&&e.button===0&&Math.hypot(e.clientX-this.down.x,e.clientY-this.down.y)<6&&performance.now()-this.down.time<450){
+      if(this.controls.enabled&&!this.gesture&&e.button===0&&Math.hypot(e.clientX-this.down.x,e.clientY-this.down.y)<6&&performance.now()-this.down.time<450){
         const r=canvas.getBoundingClientRect();const ray=new THREE.Raycaster();
         ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),this.camera);
         if(this.editor.mode==='track'){
@@ -139,26 +148,22 @@ export class WorldView {
     this.camera.fov=Math.min(85,this.camera.fov);this.camera.updateProjectionMatrix();this.renderer.setSize(width,height);}
   private clampTarget(){
     const old=this.controls.target.clone();
-    this.controls.target.set(THREE.MathUtils.clamp(old.x,-CONFIG.camera.targetX,CONFIG.camera.targetX),0,THREE.MathUtils.clamp(old.z,-CONFIG.camera.targetZ,CONFIG.camera.targetZ));
+    this.controls.target.set(THREE.MathUtils.clamp(old.x,-CONFIG.camera.targetX,CONFIG.camera.targetX),Math.abs(old.y)<1e-8?0:THREE.MathUtils.clamp(old.y,0,12),THREE.MathUtils.clamp(old.z,-CONFIG.camera.targetZ,CONFIG.camera.targetZ));
     this.camera.position.add(this.controls.target.clone().sub(old));
   }
   getCamera():CameraState{return{position:this.camera.position.toArray(),target:this.controls.target.toArray()};}
-  setCamera(value:CameraState){
-    this.controls.enableDamping=false;this.controls.update();
-    this.camera.position.fromArray(value.position);this.controls.target.fromArray(value.target);this.clampTarget();
-    this.controls.update();this.controls.enableDamping=true;
-  }
-  resetCamera(){this.setCamera(DEFAULT_CAMERA);}
+  setCamera(value:CameraState,mode:CameraMode='overview'){this.travel.set(value,mode);this.clampTarget();this.dirty=true;}
+  resetCamera(){this.travel.request(DEFAULT_CAMERA);this.dirty=true;}
   focus(id:StationId){
     const s=STATIONS.find(s=>s.id===id)!;
-    const direction=this.camera.position.clone().sub(this.controls.target).normalize().multiplyScalar(110);
+    const direction=new THREE.Vector3(42,55,45);
     const target=new THREE.Vector3(s.position[0],0,s.position[2]);
-    this.setCamera({position:target.clone().add(direction).toArray(),target:target.toArray()});
+    this.travel.request({position:target.clone().add(direction).toArray(),target:target.toArray()});this.dirty=true;
   }
   zoom(factor:number){
     const offset=this.camera.position.clone().sub(this.controls.target);
-    offset.setLength(THREE.MathUtils.clamp(offset.length()*factor,CONFIG.camera.minDistance,CONFIG.camera.maxDistance));
-    this.setCamera({position:this.controls.target.clone().add(offset).toArray(),target:this.controls.target.toArray()});
+    offset.setLength(THREE.MathUtils.clamp(offset.length()*factor,this.controls.minDistance,this.controls.maxDistance));
+    this.setCamera({position:this.controls.target.clone().add(offset).toArray(),target:this.controls.target.toArray()},this.travel.stats().mode);
   }
   setSelection(id:StationId|null){
     this.dirty=true;
@@ -206,7 +211,9 @@ export class WorldView {
     disposeGeometry(this.developmentModels);this.scene.remove(this.developmentModels);this.developmentModels=createDevelopmentModels(world);this.scene.add(this.developmentModels);this.dirty=true;this.renderer.shadowMap.needsUpdate=true;
     for(const b of this.labels.querySelectorAll<HTMLButtonElement>('[data-station]')){const id=b.dataset.station as StationId,unlocked=stationUnlocked(world,id);b.classList.toggle('locked',!unlocked);if(!world.railway.stations[id])b.querySelector('.pin-caption')!.textContent=unlocked?'候选站位':'尚未开放';}
   }
-  updateTrain(world:WorldState,poses:Pose[]){
+  updateTrain(world:WorldState,poses:Pose[],delta=.016){
+    if(this.atmosphere.update(world))this.dirty=true;this.details.update(world.railway,this.atmosphere.daylight);
+    this.selectedTrainId=world.fleet.vehicle?.id??'';
     this.updateDevelopment(world);
     if(this.crowd.update(world))this.dirty=true;
     const vehicles=allTrains(world.fleet),ids=new Set(vehicles.map(v=>v.id));
@@ -217,14 +224,10 @@ export class WorldView {
       if(model.visible!==visible){model.visible=visible;this.dirty=true;}
       if(p){if(model.position.distanceToSquared(new THREE.Vector3(...p.position))>1e-9||Math.abs(model.rotation.y-p.heading)>1e-6)this.dirty=true;model.position.fromArray(p.position);model.rotation.y=p.heading;}
     }
-    const pose=poses.find(p=>p.id===world.fleet.vehicle?.id);
-    if(world.fleet.follow&&pose){
-      const target=new THREE.Vector3(pose.position[0],0,pose.position[2]);
-      if(!this.following){const nearSavedTarget=target.distanceTo(this.controls.target)<2;const offset=nearSavedTarget?this.camera.position.clone().sub(this.controls.target):new THREE.Vector3().setFromSpherical(new THREE.Spherical(70,.62,this.controls.getAzimuthalAngle()));this.setCamera({position:target.clone().add(offset).toArray(),target:target.toArray()});}
-      else{const delta=target.clone().sub(this.controls.target);this.camera.position.add(delta);this.controls.target.copy(target);if(delta.lengthSq()>1e-9)this.dirty=true;}
-    }
-    this.following=world.fleet.follow;
+    this.labels.classList.toggle('passenger-view',world.presentation.cameraMode==='passenger');
+    if(this.travel.update(world,poses,delta))this.dirty=true;
   }
+
   render(){
     this.controls.update();this.clampTarget();
     if(!this.dirty)return;
@@ -238,5 +241,5 @@ export class WorldView {
     this.renderer.render(this.scene,this.camera);
     this.renderedFrames++;this.paintMs.push(performance.now()-started);if(this.paintMs.length>120)this.paintMs.shift();
   }
-  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,developmentModels:this.developmentModels.children.length,trainModels:this.trainModels.size,trainVisible:[...this.trainModels.values()].some(m=>m.visible),visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
+  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,developmentModels:this.developmentModels.children.length,camera:this.travel.stats(),daylight:this.atmosphere.daylight,weather:this.atmosphere.weather,rainDrops:this.atmosphere.rain.visible?384:0,stationLamps:this.details.count,nightLights:this.atmosphere.daylight<.75,trainModels:this.trainModels.size,trainVisible:[...this.trainModels.values()].some(m=>m.visible),visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
 }

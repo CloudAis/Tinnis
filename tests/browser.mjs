@@ -32,7 +32,7 @@ try{
     assert.match(await page.locator('#selection-panel').innerText(),/两个会让泊位/);
     await page.locator('[data-route="D"]').click();assert.match(await page.locator('#selection-panel').innerText(),/成长|200 人/);
     await page.locator('canvas').focus();await page.keyboard.press('Escape');assert.equal((await snap()).world.selected,null);
-    await page.locator('[data-station="A"]').click();await page.locator('canvas').click({position:{x:90,y:80}});assert.equal((await snap()).world.selected,null);
+    await page.locator('[data-station="A"]').click();await page.locator('canvas').click({position:{x:90,y:180}});assert.equal((await snap()).world.selected,null);
   })();
   await check('pause freezes simulation; speed buttons do not touch camera or selection',async()=>{
     await page.locator('#pause').click();const before=await snap();await page.waitForTimeout(700);
@@ -55,11 +55,11 @@ try{
     for(let i=0;i<8;i++)await page.locator('#zoom-out').click();
     const c=(await snap()).world.camera;const d=Math.hypot(...c.position.map((n,i)=>n-c.target[i]));const polar=Math.acos((c.position[1]-c.target[1])/d);
     assert.ok(d>=49.9&&d<=285.1);assert.ok(polar>=.239&&polar<=1.101);assert.equal(c.target[1],0);assert.ok(Math.abs(c.target[0])<=95&&Math.abs(c.target[2])<=70);assert.ok(c.position[1]>20);
-    await page.locator('canvas').focus();await page.keyboard.press('Home');await page.waitForTimeout(300);assert.deepEqual((await snap()).world.camera.target,[0,0,-3]);
+    await page.locator('canvas').focus();await page.keyboard.press('Home');await page.waitForFunction(()=>!window.__ALONGLINE__.snapshot().render.camera.transitioning);assert.deepEqual((await snap()).world.camera.target,[0,0,-3]);
   })();
   let saved;
   await check('save/load/reload retains world and camera without duplicate objects',async()=>{
-    await page.locator('[data-station="B"]').click();await page.locator('#focus-station').click();await page.waitForTimeout(300);
+    await page.locator('[data-station="B"]').click();await page.locator('#focus-station').click();await page.waitForFunction(()=>!window.__ALONGLINE__.snapshot().render.camera.transitioning);
     await page.locator('#save-menu').click();await page.locator('#save-now').click();saved=await snap();
     for(let i=0;i<3;i++)await page.locator('#load-save').click();const loaded=await snap();
     assert.equal(loaded.render.objects,saved.render.objects);assert.equal(loaded.world.economy.balance,100000);assert.equal(loaded.world.selected,'B');

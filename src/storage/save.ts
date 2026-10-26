@@ -1,3 +1,4 @@
+import { newPresentation,validatePresentation } from '../world/presentation';
 import { newDevelopment } from '../world/development';
 import { copyUpgrade,validateDevelopment } from './development';
 import { resourcesFor } from '../simulation/dispatch';
@@ -12,9 +13,9 @@ import { newRailway } from '../world/railway';
 import { CONFIG } from '../config';
 import { MAP, TOWNS } from '../world/map';
 import { isStationId, type WorldState } from '../world/state';
-export const SAVE_KEY = 'alongline-town.save.v7';
+export const SAVE_KEY = 'alongline-town.save.v8';
 export const LEGACY_SAVE_KEY = 'alongline-town.save.v1';
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 export interface SaveFile { schemaVersion: number; savedAt: string; world: WorldState }
 const fail = () => { throw new Error('存档内容不完整或数据越界，当前世界未更改。'); };
 const record = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -27,7 +28,7 @@ export function decodeSave(raw: string): SaveFile {
   let data: any;
   try { data = JSON.parse(raw); } catch { throw new Error('无法读取存档：不是有效的 JSON。'); }
   if (!record(data)) return fail();
-  if (![1, 2, 3, 4, 5, 6, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
+  if (![1, 2, 3, 4, 5, 6, 7, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
   const w = data.world;
   if (!record(w) || !record(w.map) || !record(w.clock) || !record(w.economy) || !record(w.towns) || !record(w.camera)) return fail();
   if (w.map.id !== MAP.id || w.map.version !== MAP.version || w.map.seed !== MAP.seed) throw new Error('存档地图不兼容。');
@@ -48,7 +49,7 @@ export function decodeSave(raw: string): SaveFile {
   const [x, y, z] = w.camera.position;
   const distance = Math.hypot(x - tx, y - ty, z - tz);
   const polar = Math.acos((y - ty) / distance);
-  if (ty !== 0 || Math.abs(tx) > CONFIG.camera.targetX + 0.01 || Math.abs(tz) > CONFIG.camera.targetZ + 0.01 || distance < CONFIG.camera.minDistance - 0.1 || distance > CONFIG.camera.maxDistance + 0.1 || polar < CONFIG.camera.minPolar - 0.001 || polar > CONFIG.camera.maxPolar + 0.001) return fail();
+  if ((data.schemaVersion<8?ty!==0:ty<0||ty>12||y<3.3) || Math.abs(tx) > CONFIG.camera.targetX + 0.01 || Math.abs(tz) > CONFIG.camera.targetZ + 0.01 || distance < (data.schemaVersion<8?CONFIG.camera.minDistance:3) - 0.1 || distance > CONFIG.camera.maxDistance + 0.1 || polar < (data.schemaVersion<8?CONFIG.camera.minPolar:.05) - 0.001 || polar > (data.schemaVersion<8?CONFIG.camera.maxPolar:Math.PI/2) + 0.001) return fail();
   if (typeof data.savedAt !== 'string' || !Number.isFinite(Date.parse(data.savedAt))) return fail();
   const ledger = w.economy.ledger.map((e:any) => {
     if (data.schemaVersion===1 && (e.construction!==undefined || e.id.startsWith('rail:'))) return fail();
@@ -60,6 +61,7 @@ export function decodeSave(raw: string): SaveFile {
   const railway=validateRailway(data.schemaVersion===1?newRailway():w.railway,ledger,data.schemaVersion>=7&&w.development?.unlockedD===true);
   // Reconstruct only known fields; never merge arbitrary imported keys into live objects.
   const world:WorldState = {
+    presentation:newPresentation(),
     map: { ...MAP }, clock: { tick: w.clock.tick, minutes: w.clock.minutes, speed: w.clock.speed, paused: w.clock.paused },
     economy: { balance: w.economy.balance, ledger },
     railway,
@@ -78,13 +80,15 @@ export function decodeSave(raw: string): SaveFile {
   if(data.schemaVersion>=5)world.finance=validateFinance(w.finance,world);
   if(data.schemaVersion<7){for(const [from,to] of [['A','B'],['B','A']])if(world.finance.departures[from])world.finance.departures[`${from}>${to}`]=structuredClone(world.finance.departures[from]);}
   if(data.schemaVersion>=7)world.development=validateDevelopment(w.development,world);else world.development=newDevelopment(w.clock.minutes,world.passengers.completed.length);
+  world.presentation=data.schemaVersion<8?newPresentation(world.fleet.follow):validatePresentation(w.presentation);
+  if(['follow','passenger'].includes(world.presentation.cameraMode)!==world.fleet.follow) return fail();
   return {schemaVersion:SCHEMA_VERSION,savedAt:data.savedAt,world};
 }
 export function encodeSave(world: WorldState): string {
   return JSON.stringify({ schemaVersion: SCHEMA_VERSION, savedAt: new Date().toISOString(), world }, null, 2);
 }
 export function readLocal(): SaveFile | null {
-  const raw = localStorage.getItem(SAVE_KEY) ?? localStorage.getItem('alongline-town.save.v6') ?? localStorage.getItem('alongline-town.save.v5') ?? localStorage.getItem('alongline-town.save.v4') ?? localStorage.getItem('alongline-town.save.v3') ?? localStorage.getItem('alongline-town.save.v2') ?? localStorage.getItem(LEGACY_SAVE_KEY);
+  const raw = localStorage.getItem(SAVE_KEY) ?? localStorage.getItem('alongline-town.save.v7') ?? localStorage.getItem('alongline-town.save.v6') ?? localStorage.getItem('alongline-town.save.v5') ?? localStorage.getItem('alongline-town.save.v4') ?? localStorage.getItem('alongline-town.save.v3') ?? localStorage.getItem('alongline-town.save.v2') ?? localStorage.getItem(LEGACY_SAVE_KEY);
   return raw ? decodeSave(raw) : null;
 }
 export function writeLocal(world: WorldState) { localStorage.setItem(SAVE_KEY, JSON.stringify({schemaVersion:SCHEMA_VERSION,savedAt:new Date().toISOString(),world})); }

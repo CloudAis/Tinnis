@@ -1,3 +1,4 @@
+import { DIMENSIONS } from './style';
 import * as THREE from 'three';
 import { STATIONS, type Point } from '../world/map';
 import { EDGES, edgePoints, edgePolyline, B_FRAME, type RailwayState } from '../world/railway';
@@ -31,7 +32,7 @@ export function createRailwayModels(r:RailwayState) {
     segment(g,[0,2.2,s.id==='B'?-9:-5],[0,2.2,s.id==='B'?9:5]);
     box(g,[1.6,.45,10],[-2,2.25,0],'#d8caac');
     box(g,[.15,.05,9.8],[-1.18,2.5,0],'#f1dd9b');
-    const house=createStationHouse();house.scale.multiplyScalar(.65);house.rotation.y=-Math.PI/2;house.position.set(-5.4,2.05,-1);g.add(house);
+    const house=createStationHouse();house.scale.multiplyScalar(DIMENSIONS.stationRoofScale);house.rotation.y=-Math.PI/2;house.position.set(-5.4,2.05,-1);g.add(house);
     for(const z of [-3,3]) {box(g,[.18,3,.18],[-2.2,4,z],'#8d7d62');box(g,[.6,.9,.1],[-2.2,5.3,z],'#e8ddbb');}
     // Two physical berths are part of the B asset; train allocation remains a later-stage concern.
     if(s.berths===2){

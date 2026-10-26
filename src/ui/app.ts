@@ -1,3 +1,4 @@
+import { TravelUI,type TravelActions } from './travel';
 import { GrowthUI } from './growth';
 import type { UpgradeCommand } from '../simulation/development';
 import { BusinessUI } from './business';
@@ -9,7 +10,7 @@ import { newEditor, type EditorState } from '../world/railway';
 import { clockText } from '../simulation/clock';
 import { STATIONS, TOWNS, type StationId } from '../world/map';
 import type { WorldState } from '../world/state';
-export interface Actions extends ConstructionActions {
+export interface Actions extends ConstructionActions,TravelActions {
   upgrade(c:UpgradeCommand):void;
   business(fare:number,interval:number,revision:number):void;
   trainCommand(c:TrainCommand):void;
@@ -35,6 +36,7 @@ export class UI {
   private passengerUI=new PassengerUI();
   private businessUI:BusinessUI;
   private growthUI:GrowthUI;
+  private travelUI:TravelUI;
   constructor(root:HTMLElement,actions:Actions){
     this.actions=actions;
     root.innerHTML=`
@@ -45,7 +47,7 @@ export class UI {
         <button class="save-trigger" id="save-menu">${icons.save}<span>存档</span></button>
       </header>
       <aside class="sidebar">
-        <div class="chapter"><span>07</span><div><small>第七章</small><h1>让小镇，沿线生长</h1></div></div>
+        <div class="chapter"><span>08</span><div><small>第八章</small><h1>坐一班，沿线慢行</h1></div></div>
         <p class="intro">从第一座站，到第一段轨道。<br>让两个小镇的故事连起来。</p><nav class="tool-tabs" aria-label="建设工具"><button data-mode="inspect" aria-pressed="true">车站</button><button data-mode="track">铺轨</button><button data-mode="line">线路</button><button data-mode="train">列车</button><button data-mode="passengers">客流</button><button data-mode="business">经营</button><button data-mode="growth">成长</button><button id="collapse-tools" class="collapse-tools" aria-label="收起建设面板" aria-expanded="true">⌄</button></nav>
 
         <nav class="town-list" aria-label="沿线聚落">${TOWNS.map((t,i)=>`<button class="town-card" data-town="${STATIONS[i].id}" aria-label="查看${t.name}"><span class="town-art art-${i}">${icons[i===0?'sun':i===1?'leaf':'compass']}</span><span class="town-copy"><strong>${t.name}<small>${t.kind}</small></strong><span>${t.subtitle}</span></span><span class="town-arrow">↗</span></button>`).join('')}</nav>
@@ -62,7 +64,7 @@ export class UI {
       </footer>
       <div class="hint-bar"><span class="desktop-hint">拖动旋转 <i>·</i> 右键平移 <i>·</i> 滚轮缩放 <i>·</i> 点击站位查看 <i>·</i> Esc 取消</span><span class="touch-hint">一指旋转 · 双指平移与缩放 · 点击站位查看</span><span id="save-status">本地自动存档</span></div>
       <div class="toast" role="status" aria-live="polite" id="toast" hidden></div>
-      <dialog id="save-dialog" aria-labelledby="save-title"><div class="dialog-heading"><div><span class="tiny-label">CONTINUE THE JOURNEY</span><h2 id="save-title">留住这段沿线时光</h2></div><button class="dialog-close" aria-label="关闭存档面板">×</button></div><p>地图、时间、资金与视角保存在当前浏览器。<br>导出一份文件，也能带到下一次旅程。</p><div class="save-actions"><button id="save-now" class="primary">保存当前进度</button><button id="load-save">读取本地存档</button><button id="export-save">导出 JSON</button><button id="import-save">导入 JSON</button></div><input type="file" id="import-file" accept="application/json,.json" hidden/><small class="dialog-footnote">每 15 秒自动保存；载入先校验，不重复生成场景。<br>离线可用 · 存档格式 v7 · 阶段 7</small></dialog>
+      <dialog id="save-dialog" aria-labelledby="save-title"><div class="dialog-heading"><div><span class="tiny-label">CONTINUE THE JOURNEY</span><h2 id="save-title">留住这段沿线时光</h2></div><button class="dialog-close" aria-label="关闭存档面板">×</button></div><p>地图、时间、资金与视角保存在当前浏览器。<br>导出一份文件，也能带到下一次旅程。</p><div class="save-actions"><button id="save-now" class="primary">保存当前进度</button><button id="load-save">读取本地存档</button><button id="export-save">导出 JSON</button><button id="import-save">导入 JSON</button></div><input type="file" id="import-file" accept="application/json,.json" hidden/><small class="dialog-footnote">每 15 秒自动保存；载入先校验，不重复生成场景。<br>离线可用 · 存档格式 v8 · 阶段 8</small></dialog>
       <dialog id="help-dialog" aria-labelledby="help-title"><div class="dialog-heading"><h2 id="help-title">自在地，看看小镇</h2><button class="dialog-close" aria-label="关闭操作说明">×</button></div><dl><dt>旋转</dt><dd>鼠标左键拖动 / 触屏一指拖动</dd><dt>平移</dt><dd>鼠标右键拖动 / 触屏双指拖动</dd><dt>缩放</dt><dd>滚轮 / 双指捏合 / 右侧 ＋ −</dd><dt>选择</dt><dd>点击地图站位或聚落卡片；Esc 或点击空地取消</dd><dt>快捷键</dt><dd>Space 暂停与继续，Home 回到全景</dd></dl><p>点击 A/B 站位建站，在「铺轨」选择两个节点预览，再确认扣费；在「线路」调整停站顺序。拆除退原购建价 50%，会立即使依赖线路失效。D 按成长页条件开放，C 为可选预留。</p></dialog>
       <dialog id="construction-dialog" aria-labelledby="construction-title"><div class="dialog-heading"><h2 id="construction-title">确认工程</h2><button class="dialog-close" aria-label="关闭建设确认">×</button></div><p id="construction-description"></p><div id="construction-amount"></div><p class="dialog-footnote">取消不会改变资产或余额；所有费用与退款按确认时的有效状态结算。</p><button id="confirm-construction" class="primary build-button">确认</button></dialog>
       <div class="webgl-error" id="webgl-error" hidden></div>`;
@@ -84,6 +86,7 @@ export class UI {
     this.trainUI=new TrainUI(actions.trainCommand);
     this.businessUI=new BusinessUI(actions.business);
     this.growthUI=new GrowthUI(actions.upgrade,actions.command);
+    this.travelUI=new TravelUI(document.getElementById('viewport')!,actions);
     this.click('confirm-construction',actions.confirm);
   }
   private click(id:string,fn:()=>void){document.getElementById(id)!.addEventListener('click',fn);}
@@ -109,6 +112,7 @@ export class UI {
     this.passengerUI.update(world,editor);
     this.businessUI.update(world,editor);
     this.growthUI.update(world,editor);
+    this.travelUI.update(world);
   }
   toast(message:string,error=false){const t=document.getElementById('toast')!;clearTimeout(this.toastTimer);t.textContent=message;t.classList.toggle('error',error);t.hidden=false;this.toastTimer=window.setTimeout(()=>{t.hidden=true;},4500);}
   saved(text:string){document.getElementById('save-status')!.textContent=text;}

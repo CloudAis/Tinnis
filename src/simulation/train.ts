@@ -77,7 +77,8 @@ export function executeTrainCommand(w:WorldState,c:TrainCommand) {
     if(v!.currentStation&&onboardCount(w)===0){v!.status='stopped';v!.dwellRemaining=0;}
   }else if(c.type==='withdraw'){
     v!.berth=null;v!.authority=null;v!.waitReason='';v!.waitSince=null;v!.status='depot';v!.route=null;v!.pendingStops=null;v!.currentStation=null;v!.distance=0;v!.legElapsed=0;v!.dwellRemaining=0;v!.stopRequested=false;f.follow=false;
-  }else if(c.type==='follow')f.follow=c.enabled;
+  }else if(c.type==='follow'){f.follow=c.enabled;w.presentation.cameraMode=c.enabled?'follow':'overview';}
+  if(!f.follow&&['follow','passenger'].includes(w.presentation.cameraMode))w.presentation.cameraMode='overview';
   syncResources(w);f.revision++;return d;
 }
 export function travelFraction(minutes:number,duration:number=CONFIG.journey.abMinutes) {

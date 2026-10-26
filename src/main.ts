@@ -1,3 +1,5 @@
+import { Soundscape } from './audio/soundscape';
+import { setPresentation,type PresentationState } from './world/presentation';
 import { describeUpgrade,executeUpgrade,type UpgradeCommand } from './simulation/development';
 import { setBusiness } from './simulation/finance';
 import { passengerStats } from './world/passengers';
@@ -22,7 +24,8 @@ let pendingTrain:TrainCommand|null=null;
 let pendingUpgrade:UpgradeCommand|null=null;
 let saveBlocked=!!initialNotice&&initialNotice.includes('初始世界');
 const simulation=new Simulation(world);
-function refresh(){view?.syncRailway(world,editor);ui.update(world,editor);}
+const soundscape=new Soundscape();soundscape.reset(world);
+function refresh(){view?.syncRailway(world,editor);ui.update(world,editor);const a=soundscape.stats();document.getElementById('sound-state')!.textContent=a.unavailable?'当前浏览器未能启用声音':a.state==='locked'?'首次操作后启用声音':world.presentation.muted?'已总静音':'行车 · 到站 · 环境声已启用';}
 function select(id:StationId|null){
   if(id!==null)editor.mode='inspect';
   else if(editor.mode==='track'){editor.from=null;editor.to=null;}
@@ -41,11 +44,13 @@ function request(c:Command){
   pendingTrain=null;pendingUpgrade=null;pending=c;ui.confirmation(d.message,d.amount,c.type.startsWith('remove'));
 }
 function requestTrain(c:TrainCommand){
+  if(c.type==='follow'){present({cameraMode:c.enabled?'follow':'overview'});return;}
   const d=describeTrainCommand(world,c);if(!d.ok){ui.toast(d.message,true);return;}
   if(c.type==='buy'||c.type==='sell'){pendingTrain=c;pending=null;pendingUpgrade=null;ui.confirmation(d.message,d.amount,c.type==='sell',c.type==='buy'?'确认购车':'确认出售');}
   else commitTrain(c);
 }
-function commitTrain(c:TrainCommand){const d=executeTrainCommand(world,c);simulation.resetElapsed();refresh();ui.toast(d.message,!d.ok);if(d.ok)store();}
+function commitTrain(c:TrainCommand){const before=world.presentation.cameraMode;const d=executeTrainCommand(world,c);if(c.type!=='select')simulation.resetElapsed();if(before!==world.presentation.cameraMode&&world.presentation.cameraMode==='overview')view?.resetCamera();refresh();ui.toast(d.message,!d.ok);if(d.ok)store();}
+function present(p:Partial<PresentationState>){const d=setPresentation(world,p);if(!d.ok){ui.toast(d.message,true);return;}if(p.cameraMode==='overview')view?.resetCamera();soundscape.update(world);refresh();store();}
 function syncCamera(){if(view)world.camera=view.getCamera();}
 function store(manual=false){
   if(saveBlocked&&!manual)return;
@@ -55,20 +60,21 @@ function store(manual=false){
 function restore(raw:string){
   const saved=decodeSave(raw); // Atomic validation before replacing any live state.
   world=saved.world;simulation.state=world;simulation.resetElapsed();editor=newEditor();pending=null;pendingTrain=null;pendingUpgrade=null;ui.closeConfirmation();
-  view?.setCamera(world.camera);view?.setSelection(world.selected);refresh();saveBlocked=false;
+  soundscape.reset(world);view?.setCamera(world.camera,world.presentation.cameraMode);view?.setSelection(world.selected);refresh();saveBlocked=false;
 }
 const ui=new UI(document.getElementById('app')!,{
   pause(){world.clock.paused=!world.clock.paused;simulation.resetElapsed();refresh();},
   speed(n:Speed){world.clock.speed=n;simulation.resetElapsed();refresh();},
   select,
-  mode(mode){editor.mode=mode;refresh();},
+  mode(mode){editor.mode=mode;if(['track','line'].includes(mode)&&['follow','passenger'].includes(world.presentation.cameraMode)){setPresentation(world,{cameraMode:'overview'});view?.resetCamera();}refresh();},
   endpoint(slot,id){editor[slot]=id;if(slot==='from'&&!id)editor.to=null;refresh();},
   command:request,
   trainCommand:requestTrain,
   business(fare,interval,revision){const result=setBusiness(world,fare,interval,revision);ui.toast(result.message,!result.ok);refresh();if(result.ok)store();},
   upgrade(c){const d=describeUpgrade(world,c);if(!d.ok){ui.toast(d.message,true);return;}pending=null;pendingTrain=null;pendingUpgrade=c;ui.confirmation(d.message,d.amount,!!c.remove,c.remove?'确认拆除升级':'确认站区升级');},
   confirm(){const c=pending,t=pendingTrain,u=pendingUpgrade;pending=null;pendingTrain=null;pendingUpgrade=null;ui.closeConfirmation();if(c)commit(c);if(t)commitTrain(t);if(u){const d=executeUpgrade(world,u);refresh();ui.toast(d.message,!d.ok);if(d.ok)store();}},
-  focus(id){world.fleet.follow=false;view?.focus(id);},home(){world.fleet.follow=false;view?.resetCamera();select(null);},zoom(f){view?.zoom(f);},
+  presentation:present,
+  focus(id){setPresentation(world,{cameraMode:'station',station:id});view?.focus(id);refresh();},home(){setPresentation(world,{cameraMode:'overview'});view?.resetCamera();select(null);},zoom(f){view?.zoom(f);},
   save(){store(true);},
   load(){try{const saved=readLocal();if(!saved){ui.toast('还没有本地存档，可以先保存当前进度。');return;}restore(JSON.stringify(saved));ui.toast('已读取存档，地图与视角已恢复。');}catch(e){ui.toast((e as Error).message,true);}},
   export(){
@@ -84,7 +90,7 @@ document.getElementById('construction-dialog')!.addEventListener('close',()=>{if
 refresh();
 try{
   view=new WorldView(document.getElementById('viewport')!,select,()=>{},nodeSelect);
-  view.setCamera(world.camera);view.setSelection(world.selected);refresh();
+  view.setCamera(world.camera,world.presentation.cameraMode);view.setSelection(world.selected);refresh();
   document.getElementById('loading')!.remove();
   if(initialNotice)ui.toast(initialNotice,saveBlocked);
   view.renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();world.clock.paused=true;simulation.resetElapsed();refresh();ui.toast('图形上下文已丢失，模拟已暂停。请保存后刷新页面。',true);});
@@ -99,7 +105,7 @@ const frames:number[]=[];
 function frame(now:number){
   const delta=(now-previous)/1000;previous=now;
   if(!document.hidden&&view){
-    simulation.advance(delta);view.updateTrain(world,simulation.visualPoses());view.render();
+    simulation.advance(delta);view.updateTrain(world,simulation.visualPoses(),delta);soundscape.update(world);view.render();
     frames.push(delta*1000);if(frames.length>180)frames.shift();
     if(now-lastUI>160){refresh();lastUI=now;}
   }
@@ -107,13 +113,15 @@ function frame(now:number){
 }
 requestAnimationFrame(frame);
 setInterval(()=>{if(view&&!document.hidden)store();},15_000);
-document.addEventListener('visibilitychange',()=>{previous=performance.now();simulation.resetElapsed();if(document.hidden&&view)store();});
-window.addEventListener('pagehide',()=>{if(view)store();});
+document.addEventListener('visibilitychange',()=>{soundscape.setHidden(document.hidden);previous=performance.now();simulation.resetElapsed();if(document.hidden&&view)store();});
+window.addEventListener('pagehide',()=>{if(view)store();soundscape.dispose();});
+document.addEventListener('pointerdown',e=>{if(e.isTrusted)void soundscape.unlock(world);},{capture:true});
+document.addEventListener('keydown',e=>{if(e.isTrusted&&!e.repeat)void soundscape.unlock(world);},{capture:true});
 document.addEventListener('keydown',e=>{
   if(e.target instanceof HTMLElement&&(e.target.matches('input,textarea,select,button,a')||e.target.isContentEditable))return;
   if(document.querySelector('dialog[open]'))return;
   if(e.code==='Space'){e.preventDefault();world.clock.paused=!world.clock.paused;simulation.resetElapsed();refresh();}
-  if(e.code==='Home'){e.preventDefault();world.fleet.follow=false;view?.resetCamera();select(null);}
+  if(e.code==='Home'){e.preventDefault();setPresentation(world,{cameraMode:'overview'});view?.resetCamera();select(null);}
   if(e.code==='Escape')select(null);
 });
 if(import.meta.env.PROD&&'serviceWorker'in navigator){
@@ -125,6 +133,6 @@ if(import.meta.env.PROD&&'serviceWorker'in navigator){
 if(new URLSearchParams(location.search).has('diagnostics')){
   Object.defineProperty(window,'__ALONGLINE__',{value:{snapshot(){
     syncCamera();const sorted=[...frames].sort((a,b)=>a-b);
-    return {world:structuredClone(world),editor:structuredClone(editor),line:deploymentReadiness(world),passengerStats:passengerStats(world.passengers),render:view?.stats(),performance:{samples:frames.length,medianFrameMs:sorted[Math.floor(sorted.length/2)]??0,p95FrameMs:sorted[Math.floor(sorted.length*.95)]??0},webgl:view?.renderer.getContext().getParameter(WebGL2RenderingContext.RENDERER)};
+    return {world:structuredClone(world),editor:structuredClone(editor),line:deploymentReadiness(world),passengerStats:passengerStats(world.passengers),render:view?.stats(),audio:soundscape.stats(),performance:{samples:frames.length,medianFrameMs:sorted[Math.floor(sorted.length/2)]??0,p95FrameMs:sorted[Math.floor(sorted.length*.95)]??0},webgl:view?.renderer.getContext().getParameter(WebGL2RenderingContext.RENDERER)};
   }},writable:false});
 }

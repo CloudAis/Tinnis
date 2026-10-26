@@ -1,8 +1,10 @@
+import { COLOR_ALIASES } from './style';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const materials = new Map<string, THREE.MeshLambertMaterial>();
 const boxes = new Map<string, THREE.BoxGeometry>();
 export function material(color: string) {
+  color=COLOR_ALIASES[color]??color;
   if (!materials.has(color)) materials.set(color, new THREE.MeshLambertMaterial({ color, flatShading: true }));
   return materials.get(color)!;
 }
@@ -74,6 +76,8 @@ export function batchStatic(source: THREE.Group) {
   source.traverse(o => {
     if (!(o instanceof THREE.Mesh) || Array.isArray(o.material)) return;
     const geometry = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    // Shared flat colors can combine custom roofs (no UV) and cached boxes (with UV).
+    if(o.material instanceof THREE.MeshLambertMaterial&&!o.material.map)geometry.deleteAttribute('uv');
     const list = groups.get(o.material) ?? []; list.push(geometry.index ? geometry.toNonIndexed() : geometry);
     if (geometry.index) geometry.dispose(); originals.add(o.geometry); groups.set(o.material, list);
   });

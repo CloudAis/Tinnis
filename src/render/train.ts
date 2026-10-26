@@ -1,12 +1,13 @@
+import { PALETTE,DIMENSIONS } from './style';
 import * as THREE from 'three';
 import { batchStatic, box, cylinder } from './models';
 import type { VehicleType } from '../world/fleet';
 export function createTrainModel(type:VehicleType) {
-  const g=new THREE.Group(),length=type==='light'?5:7.2;
-  box(g,[1.8,1.7,length],[0,1.55,0],'#eee6cd');
-  box(g,[1.85,.32,length+.08],[0,1.15,0],type==='light'?'#577f66':'#b87e4b');
-  box(g,[1.9,.25,length+.15],[0,2.52,0],'#718578');
-  for(const x of [-.92,.92])for(let z=-length/2+.8;z<length/2-.4;z+=1.1)box(g,[.05,.7,.75],[x,1.95,z],'#587f82');
+  const g=new THREE.Group(),length=type==='light'?DIMENSIONS.lightLength:DIMENSIONS.largeLength;
+  box(g,[DIMENSIONS.trainWidth,1.7,length],[0,1.55,0],PALETTE.cream);
+  box(g,[1.85,.32,length+.08],[0,1.15,0],type==='light'?PALETTE.green:PALETTE.amber);
+  box(g,[1.9,.25,length+.15],[0,2.52,0],PALETTE.roof);
+  for(const x of [-.92,.92])for(let z=-length/2+.8;z<length/2-.4;z+=1.1)box(g,[.05,.7,.75],[x,1.95,z],PALETTE.glass);
   for(const z of [-length/2-.02,length/2+.02]){
     box(g,[1.4,.75,.06],[0,1.95,z],'#577d80');
     for(const x of [-.55,.55])box(g,[.2,.15,.08],[x,1.2,z],z>0?'#f7e5a6':'#b66c4e');
