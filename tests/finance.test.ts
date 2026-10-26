@@ -33,3 +33,10 @@ test('fares and intervals trade accepted demand against income and waits; ten-da
  assert.ok(results[0].accepted>results[2].accepted);assert.ok(results[0].completed>results[2].completed);assert.ok(results[1].net.every(n=>n>0));assert.ok(Math.abs(results[1].interval!-200)<.5);assert.ok(Math.abs(results[2].interval!-240)<.5);
  console.log('10-day balance scenarios',JSON.stringify(results));
 });
+
+test('asset refunds and empty train sale are allowed even when debt exceeds the refund',()=>{
+ const w=setupFinance();executeTrainCommand(w,{type:'stop',revision:w.fleet.revision});transact(w,'test:debt',-100000,'大额运营欠款场景',undefined,undefined,{category:'fixed',day:0,operating:true});assert.equal(w.economy.balance,-50000);assert.equal(executeTrainCommand(w,{type:'sell',revision:w.fleet.revision}).ok,true);assert.equal(w.economy.balance,-36800);assert.equal(executeCommand(w,{type:'remove-track',edge:'ab-valley',revision:w.railway.revision}).ok,true);assert.equal(w.economy.balance,-34800);assert.deepEqual(decodeSave(encodeSave(w)).world,w);
+});
+test('cost due on the departure tick is charged before permission, so the last yuan cannot launch a new leg',()=>{
+ const w=setupFinance();transact(w,'test:last-yuan',-(w.economy.balance-1),'发车边界测试');w.finance.remainder.fixed=.99;w.fleet.vehicle!.dwellRemaining=.4;w.clock.speed=4;new Simulation(w).advance(.05);assert.equal(w.economy.balance,0);assert.equal(w.fleet.vehicle!.currentStation,'A');assert.equal(w.fleet.vehicle!.status,'stopped');assert.equal(w.fleet.vehicle!.tripSerial,0);
+});

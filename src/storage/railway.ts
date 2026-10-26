@@ -7,7 +7,7 @@ const int=(v:unknown):v is number=>Number.isSafeInteger(v)&&(v as number)>=0;
 function invalid():never { throw new Error('铁路存档、购建凭据或退款记录不一致，当前世界未更改。'); }
 
 // Replay receipt allocation, including sold assets. Historical prices are never replaced by new config prices.
-export function validateRailway(raw:unknown,ledger:LedgerEntry[]):RailwayState {
+export function validateRailway(raw:unknown,ledger:LedgerEntry[],unlockedD=false):RailwayState {
   if (!record(raw)||!int(raw.revision)||raw.revision>1e9||!int(raw.nextSerial)||!record(raw.stations)||!record(raw.tracks)||!record(raw.line)) return invalid();
   const active=new Map<AssetKey,Purchase>();
   let serial=1,mutations=0;
@@ -19,7 +19,7 @@ export function validateRailway(raw:unknown,ledger:LedgerEntry[]):RailwayState {
       if (entry.id!==`rail:build:${serial}`||!Array.isArray(receipt.items)||!receipt.items.length||receipt.items.length>11) return invalid();
       const seen=new Set<string>();let total=0;
       for (const item of receipt.items) {
-        if (!record(item)||!assetExists(item.key)||!assetUnlocked(item.key)||!int(item.paid)||item.paid<=0||active.has(item.key)||seen.has(item.key)) return invalid();
+        if (!record(item)||!assetExists(item.key)||!assetUnlocked(item.key,unlockedD)||!int(item.paid)||item.paid<=0||active.has(item.key)||seen.has(item.key)) return invalid();
         seen.add(item.key);total+=item.paid;
         active.set(item.key,{purchaseId:entry.id,paid:item.paid,builtAtTick:entry.tick});
       }
@@ -50,7 +50,7 @@ export function validateRailway(raw:unknown,ledger:LedgerEntry[]):RailwayState {
   }
   if (active.size) return invalid();
   const line=raw.line;
-  if (line.id!=='line-main'||typeof line.name!=='string'||!validName(line.name)||!Array.isArray(line.stops)||line.stops.length<2||line.stops.length>4||new Set(line.stops).size!==line.stops.length||line.stops.some((id:unknown)=>!STATIONS.find(s=>s.id===id)?.unlocked)) return invalid();
+  if (line.id!=='line-main'||typeof line.name!=='string'||!validName(line.name)||!Array.isArray(line.stops)||line.stops.length<2||line.stops.length>4||new Set(line.stops).size!==line.stops.length||line.stops.some((id:unknown)=>!STATIONS.some(s=>s.id===id&&(s.unlocked||s.id==='D'&&unlockedD)))) return invalid();
   result.line={id:'line-main',name:line.name,stops:[...line.stops]};
   return result;
 }

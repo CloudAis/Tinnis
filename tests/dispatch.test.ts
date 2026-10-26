@@ -1,3 +1,4 @@
+import { boxesOverlap } from './support/geometry';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { transact } from '../src/simulation/economy';
@@ -9,12 +10,6 @@ import { resourcesFor, requestAuthority } from '../src/simulation/dispatch';
 import { encodeSave,decodeSave } from '../src/storage/save';
 import { passengerStats } from '../src/world/passengers';
 function start(origins=['A','B']){const w=network();for(const origin of origins){assert.equal(command(w,{type:'buy',model:'light',revision:w.fleet.revision}).ok,true);const v=allTrains(w.fleet).at(-1)!;command(w,{type:'select',id:v.id,revision:w.fleet.revision});assert.equal(command(w,{type:'dispatch',origin:origin as 'A'|'B',revision:w.fleet.revision}).ok,true);}return w;}
-function boxesOverlap(a:NonNullable<ReturnType<typeof trainPose>>,b:NonNullable<ReturnType<typeof trainPose>>,length=5){
- const center=[b.position[0]-a.position[0],b.position[2]-a.position[2]];
- const axes=(p:typeof a)=>[[Math.sin(p.heading),Math.cos(p.heading)],[Math.cos(p.heading),-Math.sin(p.heading)]];
- const aa=axes(a),bb=axes(b),dot=(x:number[],y:number[])=>x[0]*y[0]+x[1]*y[1];
- return [...aa,...bb].every(axis=>Math.abs(dot(center,axis))<(length+.15)/2*(Math.abs(dot(aa[0],axis))+Math.abs(dot(bb[0],axis)))+.95*(Math.abs(dot(aa[1],axis))+Math.abs(dot(bb[1],axis)))-.01);
-}
 test('two train upper bound and occupied dispatch platform are cash-safe; B has distinct physical berths',()=>{
  const w=start(['B','B']);const poses=allTrains(w.fleet).map(v=>trainPose(w,v)!);assert.ok(Math.hypot(poses[0].position[0]-poses[1].position[0],poses[0].position[2]-poses[1].position[2])>3.7);assert.equal(boxesOverlap(poses[0],poses[1],7.2),false);const before=structuredClone(w);assert.equal(command(w,{type:'buy',model:'light',revision:w.fleet.revision}).ok,false);assert.deepEqual(w,before);assert.deepEqual(decodeSave(encodeSave(w)).world,w);
  const a=start(['A']);command(a,{type:'buy',model:'light',revision:a.fleet.revision});command(a,{type:'select',id:'train-0002',revision:a.fleet.revision});const cash=a.economy.balance;assert.equal(command(a,{type:'dispatch',origin:'A',revision:a.fleet.revision}).ok,false);assert.equal(a.economy.balance,cash);

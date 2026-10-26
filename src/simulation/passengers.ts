@@ -1,3 +1,4 @@
+import { patience,stationUnlocked } from './development';
 import { allTrains } from '../world/fleet';
 import { quoteFare, priceAcceptance } from './finance';
 import { CONFIG } from '../config';
@@ -11,7 +12,7 @@ export function demandWeight(kind:'commute'|'tourism',minute:number){
 export function demandRate(world:WorldState,from:StationId,to:StationId,minute:number){
   const pair=DEMAND_PAIRS.find(p=>p.from===from&&p.to===to);
   const origin=STATIONS.find(s=>s.id===from),destination=STATIONS.find(s=>s.id===to);
-  if(!pair||!origin?.unlocked||!destination?.unlocked)return 0;
+  if(!pair||!origin||!destination||!stationUnlocked(world,origin.id)||!stationUnlocked(world,destination.id))return 0;
   const level=(id:typeof origin)=>id?.townId?world.towns[id.townId].level:1;
   const scale=CONFIG.demand.growthFactors;const growth=Math.sqrt(scale[level(origin)-1]*scale[level(destination)-1]);
   const daily=pair.market==='AB'?CONFIG.demandAB:pair.market==='AD'?CONFIG.demand.tourismAD:CONFIG.demand.tourismBD;
@@ -36,8 +37,8 @@ export function generateDemand(w:WorldState){
     }
   }
 }
-export function expireWaiting(p:PassengerState,now:number){
-  p.waiting=p.waiting.filter(b=>{if(now-b.arrivedAt>=CONFIG.patienceMinutes-1e-7){p.totals.abandoned+=b.count;return false;}return true;});
+export function expireWaiting(p:PassengerState,now:number,w?:WorldState){
+  p.waiting=p.waiting.filter(b=>{if(now-b.arrivedAt>=(w?patience(w,b.from):CONFIG.patienceMinutes)-1e-7){p.totals.abandoned+=b.count;return false;}return true;});
 }
 export function alight(p:PassengerState,station:StationId,vehicleId:string,now:number,tripSerial:number){
   const events:CompletionEvent[]=[];
@@ -67,7 +68,7 @@ export function board(w:WorldState,v=w.fleet.vehicle){
   p.waiting=p.waiting.filter(b=>b.count>0);
 }
 export function stepPassengers(w:WorldState){
-  generateDemand(w);expireWaiting(w.passengers,w.clock.minutes);
+  generateDemand(w);expireWaiting(w.passengers,w.clock.minutes,w);
   for(const v of allTrains(w.fleet))if(v.route&&v.currentStation)alight(w.passengers,v.currentStation,v.id,w.clock.minutes,v.tripSerial);
   for(const v of allTrains(w.fleet))board(w,v);
 }

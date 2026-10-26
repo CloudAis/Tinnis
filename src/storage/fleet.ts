@@ -1,3 +1,4 @@
+import { stationDistance,legDuration } from '../simulation/route-distance';
 import { resourcesFor } from '../simulation/dispatch';
 import { STATIONS } from '../world/map';
 import { CONFIG } from '../config';
@@ -37,33 +38,35 @@ export function validateFleet(raw:any,w:WorldState,ledger:LedgerEntry[]):FleetSt
   const input=[...(raw.vehicle?[raw.vehicle]:[]),...raw.others];if(input.length!==active.size||new Set(input.map(v=>v.id)).size!==input.length||!raw.vehicle&&(input.length||raw.follow))return bad();
   function parse(v:any){
   const bought=active.get(v?.id);if(!bought)return bad();
-  if(!record(v)||v.id!==bought.id||v.type!==bought.type||v.purchaseId!==bought.purchaseId||v.paid!==bought.paid||!Object.hasOwn(STATUS_NAMES,v.status)||![1,-1].includes(v.direction)||!finite(v.distance)||v.distance<0||!finite(v.legElapsed)||v.legElapsed<0||v.legElapsed>90.000001||!finite(v.dwellRemaining)||v.dwellRemaining<0||v.dwellRemaining>10.000001||typeof v.stopRequested!=='boolean'||!int(v.tripSerial)||!int(v.legsCompleted)||!int(v.arrivalSerial)||v.arrivalSerial!==v.legsCompleted)return bad();
+  if(!record(v)||v.id!==bought.id||v.type!==bought.type||v.purchaseId!==bought.purchaseId||v.paid!==bought.paid||!Object.hasOwn(STATUS_NAMES,v.status)||![1,-1].includes(v.direction)||!finite(v.distance)||v.distance<0||!finite(v.legElapsed)||v.legElapsed<0||v.legElapsed>1e6||!finite(v.dwellRemaining)||v.dwellRemaining<0||v.dwellRemaining>10.000001||typeof v.stopRequested!=='boolean'||!int(v.tripSerial)||!int(v.legsCompleted)||!int(v.arrivalSerial)||v.arrivalSerial!==v.legsCompleted)return bad();
   let route=null;
   if(v.status==='depot'){
     if(v.route!==null||v.currentStation!==null||v.pendingStops!==null||v.distance!==0||v.legElapsed!==0||v.dwellRemaining!==0||raw.follow&&raw.vehicle?.id===v.id)return bad();
   }else{
-    if(!record(v.route)||!Array.isArray(v.route.stops)||v.route.stops.length!==2||new Set(v.route.stops).size!==2)return bad();
+    if(!record(v.route)||!Array.isArray(v.route.stops)||v.route.stops.length<2||v.route.stops.length>3||new Set(v.route.stops).size!==v.route.stops.length)return bad();
     const candidate=routeSnapshot({...w,railway:{...w.railway,line:{...w.railway.line,stops:v.route.stops}}});
     if(!candidate||JSON.stringify(candidate)!==JSON.stringify({lineId:v.route.lineId,stops:v.route.stops,nodes:v.route.nodes,edges:v.route.edges,length:v.route.length}))return bad();
     route=candidate;
     if(v.distance>route.length+1e-6)return bad();
     if(v.status==='running'||v.status==='braking'){
-      const expected=route.length*(v.direction===1?travelFraction(v.legElapsed):1-travelFraction(v.legElapsed));
+      const a=v.authority;if(!record(a)||!route.stops.includes(a.from)||!route.stops.includes(a.to)||route.stops.indexOf(a.to)-route.stops.indexOf(a.from)!==v.direction)return bad();
+      const duration=legDuration({...v,route} as any),from=stationDistance(route,a.from),to=stationDistance(route,a.to),expected=from+(to-from)*travelFraction(v.legElapsed,duration);
+      if(v.legElapsed>duration+1e-6)return bad();
       if(v.currentStation!==null||Math.abs(expected-v.distance)>1e-6||v.tripSerial!==v.legsCompleted+1||v.dwellRemaining!==0)return bad();
-      if(v.status==='running'&&v.legElapsed>=80.000001||v.status==='braking'&&v.legElapsed<80-1e-6)return bad();
+      if(v.status==='running'&&v.legElapsed>=duration-10+1e-6||v.status==='braking'&&v.legElapsed<duration-10-1e-6)return bad();
     }else{
-      if(!route.stops.includes(v.currentStation)||Math.abs(v.distance-(v.currentStation===route.stops[0]?0:route.length))>1e-6||v.tripSerial!==v.legsCompleted)return bad();
+      if(!route.stops.includes(v.currentStation)||Math.abs(v.distance-stationDistance(route,v.currentStation))>1e-6||v.tripSerial!==v.legsCompleted)return bad();
     }
     if(v.pendingStops!==null){
-      if(!['running','braking'].includes(v.status)||JSON.stringify(v.pendingStops)!==JSON.stringify(w.railway.line.stops))return bad();
-    }else if(JSON.stringify(route.stops)!==JSON.stringify(w.railway.line.stops))return bad();
+      if(!Array.isArray(v.pendingStops)||!routeSnapshot(w,v.pendingStops))return bad();
+    }
   }
   if(!finite(v.totalDistance)||v.totalDistance<0)return bad();
   if(v.waitSince!==null&&(!finite(v.waitSince)||v.waitSince>w.clock.minutes+1e-6)||typeof v.waitReason!=='string')return bad();
   const validBerth=(station:any,berth:any)=>Number.isInteger(berth)&&berth>=1&&berth<=(STATIONS.find(s=>s.id===station)?.berths??0);
   let authority=null;
   if(v.currentStation){if(!validBerth(v.currentStation,v.berth)||v.authority!==null)return bad();}
-  else if(v.status==='running'||v.status==='braking'){const a=v.authority;if(!record(a)||!route||a.section!==[...route.stops].sort().join('')||!route.stops.includes(a.from)||!route.stops.includes(a.to)||a.from===a.to||a.to!==(v.direction===1?route.stops.at(-1):route.stops[0])||!validBerth(a.from,a.fromBerth)||!validBerth(a.to,a.berth)||v.berth!==null)return bad();authority={section:a.section,from:a.from,to:a.to,fromBerth:a.fromBerth,berth:a.berth};}
+  else if(v.status==='running'||v.status==='braking'){const a=v.authority;if(!record(a)||!route||a.section!==[a.from,a.to].sort().join('')||!route.stops.includes(a.from)||!route.stops.includes(a.to)||a.from===a.to||route.stops.indexOf(a.to)-route.stops.indexOf(a.from)!==v.direction||!validBerth(a.from,a.fromBerth)||!validBerth(a.to,a.berth)||v.berth!==null)return bad();authority={section:a.section,from:a.from,to:a.to,fromBerth:a.fromBerth,berth:a.berth};}
   else if(v.berth!==null||v.authority!==null)return bad();
   return {...bought,berth:v.berth,authority,waitSince:v.waitSince,waitReason:v.waitReason,totalDistance:v.totalDistance,status:v.status,route,pendingStops:v.pendingStops===null?null:[...v.pendingStops],direction:v.direction,distance:v.distance,legElapsed:v.legElapsed,dwellRemaining:v.dwellRemaining,currentStation:v.currentStation,stopRequested:v.stopRequested,tripSerial:v.tripSerial,legsCompleted:v.legsCompleted,arrivalSerial:v.arrivalSerial};
   }

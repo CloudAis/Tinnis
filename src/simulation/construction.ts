@@ -1,3 +1,6 @@
+import { allTrains } from '../world/fleet';
+import { deploymentReadiness as readiness } from './route';
+import { stationUnlocked } from './development';
 import { operatingGuard, queueLineChange } from './train';
 export { deploymentReadiness } from './route';
 import { CONFIG } from '../config';
@@ -24,7 +27,7 @@ export function previewTrack(world: WorldState, from: string | null, to: string 
   if (!from || !to) reason = '请选择起点与终点，或点击地图候选节点。';
   else if (from === to) reason = '起点与终点不能相同。';
   else if (!path) reason = '两点不在同一预设走廊，不能自由铺设轨道。';
-  else if (path.edges.some(id => !edgeById(id)!.unlocked)) reason = path.edges.includes('bc-overlook') ? 'C 河谷为可选支线，核心内容完成后再评估。' : 'B—D 预留走廊将在第 7 阶段解锁。';
+  else if (path.edges.some(id => !assetUnlocked(`track:${id}`,world.development.unlockedD))) reason = path.edges.includes('bc-overlook') ? 'C 河谷为可选支线，核心内容完成后再评估。' : 'B—D 旅游走廊需先达成成长条件：累计送达 200 人与一个完整盈利日。';
   else if (!missing.length) reason = '所选走廊已全部建成，不重复扣费。';
   else if (world.economy.balance < cost) reason = `资金不足，还差 ¥ ${(cost-world.economy.balance).toLocaleString('en-US')}。`;
   return { ok: !reason, reason, path, missing, cost };
@@ -36,7 +39,7 @@ export function describeCommand(world:WorldState,c:Command): { ok:boolean; messa
   switch(c.type) {
     case 'build-station': {
       const s=STATIONS.find(s=>s.id===c.station);
-      if (!s || !s.unlocked) return {ok:false,message:s?.optional?'C 河谷为可选站，本阶段尚未开放。':'D 枫泉站将在第 7 阶段解锁。',amount:0};
+      if (!s || !stationUnlocked(world,s.id)) return {ok:false,message:s?.optional?'C 河谷为可选站，本阶段尚未开放。':'D 枫泉站需先达到成长页的运量与盈利条件。',amount:0};
       if (r.stations[c.station]) return {ok:false,message:'车站已建成，不重复扣费。',amount:0};
       amount=-CONFIG.stationCosts[c.station];message=`建设${s.name}，保留 ${s.berths} 个泊位。`;break;
     }
@@ -49,6 +52,7 @@ export function describeCommand(world:WorldState,c:Command): { ok:boolean; messa
     case 'remove-track': {
       const asset=c.type==='remove-station'?r.stations[c.station]:r.tracks[c.edge];
       if (!asset) return {ok:false,message:'该资产已不存在，不重复退款。',amount:0};
+      if(c.type==='remove-station'&&Object.keys(world.development.upgrades[c.station]??{}).length)return {ok:false,message:'请先拆除本站升级设施，分别返还原价 50%。',amount:0};
       const blocked=operatingGuard(world,c.type==='remove-station'?{stations:[c.station],edges:[]}:{stations:[],edges:[c.edge]});
       if(blocked)return {ok:false,message:blocked,amount:0};
       amount=Math.floor(asset.paid*CONFIG.demolitionRefund);
@@ -59,10 +63,11 @@ export function describeCommand(world:WorldState,c:Command): { ok:boolean; messa
       if (!validName(c.name)) return {ok:false,message:'站名须为 1–16 个字符，不能包含控制符或尖括号。',amount:0};
       message='站名已更新。';break;
     case 'set-stops':
-      if (c.stops.length<2 || c.stops.length>4 || new Set(c.stops).size!==c.stops.length || c.stops.some(id=>!STATIONS.find(s=>s.id===id)?.unlocked)) return {ok:false,message:'请选择至少两个不同且已解锁的停站；D/C 暂未开放。',amount:0};
+      if (c.stops.length<2 || c.stops.length>4 || new Set(c.stops).size!==c.stops.length || c.stops.some(id=>!STATIONS.some(s=>s.id===id&&stationUnlocked(world,s.id)))) return {ok:false,message:'请选择至少两个不同且已解锁的停站；未开放的站不能加入线路。',amount:0};
+      if(allTrains(world.fleet).some(v=>v.route)&&!readiness(world,c.stops).ok)return {ok:false,message:'请先建成新停站路径，再调整运营线路；当前线路未改变。',amount:0};
       message='停站顺序已保存，路径按已建轨道重新计算。';break;
   }
-  if (world.economy.balance+amount<0) return {ok:false,message:'资金不足，资产与余额未更改。',amount:0};
+  if (amount<0&&world.economy.balance+amount<0) return {ok:false,message:'资金不足，资产与余额未更改。',amount:0};
   return {ok:true,message,amount};
 }
 // Synchronous command boundary: all validation precedes the only financial mutation.

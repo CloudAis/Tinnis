@@ -1,5 +1,6 @@
+import { stepDevelopment } from './development';
 import { allTrains } from '../world/fleet';
-import { stepFinance, settleCompleted } from './finance';
+import { stepFinance, settleCompleted,settleMovement } from './finance';
 import { stepPassengers } from './passengers';
 import { stepTrains, trainPose, type Pose } from './train';
 import { CONFIG } from '../config';
@@ -14,12 +15,15 @@ export class Simulation {
     const step = CONFIG.clock.stepSeconds;
     while (this.accumulator + 1e-9 >= step) {
       this.previousPoses=new Map(allTrains(this.state.fleet).flatMap(v=>{const p=trainPose(this.state,v);return p?[[v.id,p] as const]:[];}));
+      const fromMinute=this.state.clock.minutes;
       this.state.clock.tick++;
       this.state.clock.minutes += step * CONFIG.clock.minutesPerSecond * this.state.clock.speed;
+      stepFinance(this.state,true);
       stepTrains(this.state,step*CONFIG.clock.minutesPerSecond*this.state.clock.speed);
-      stepFinance(this.state);
+      settleMovement(this.state,fromMinute);
       stepPassengers(this.state);
       settleCompleted(this.state);
+      stepDevelopment(this.state);
       this.accumulator = Math.max(0, this.accumulator - step);
     }
   }

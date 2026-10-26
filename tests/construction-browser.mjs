@@ -39,7 +39,7 @@ try{
     assert.match(await page.locator('#preview-cost').innerText(),/12,000/);assert.equal((await snap()).world.economy.balance,84000);
     assert.deepEqual((await snap()).editor,{mode:'track',from:'node-a',to:'node-b'});
     await page.waitForFunction(()=>!window.__ALONGLINE__.snapshot().render.needsRender);assert.ok((await snap()).render.previewSegments>0);await page.screenshot({path:'artifacts/stage-2-preview.png'});
-    await page.locator('#track-to').selectOption('node-d');assert.equal(await page.locator('#preview-build').isDisabled(),true);assert.match(await page.locator('#preview-reason').innerText(),/第 7 阶段/);
+    await page.locator('#track-to').selectOption('node-d');assert.equal(await page.locator('#preview-build').isDisabled(),true);assert.match(await page.locator('#preview-reason').innerText(),/成长|200 人/);
     await page.locator('#track-to').selectOption('node-c');assert.match(await page.locator('#preview-reason').innerText(),/可选支线/);
     assert.equal((await snap()).world.economy.balance,84000);
     await page.locator('#clear-preview').click();

@@ -16,8 +16,9 @@ export function validateFinance(raw:any,w:WorldState):FinanceState{
   for(const k of Object.keys(f.remainder) as (keyof typeof f.remainder)[]){if(!num(raw.remainder[k])||raw.remainder[k]<0||raw.remainder[k]>=1+1e-7)return bad();f.remainder[k]=raw.remainder[k];}
   for(const [k,v] of Object.entries(raw.priceCarry)){if(!['A>B','B>A','A>D','D>A','B>D','D>B'].includes(k)||!num(v)||(v as number)<0||(v as number)>=1+1e-7)return bad();f.priceCarry[k]=v as number;}
   for(const [k,v] of Object.entries(raw.mileage)){if(!/^train-\d+$/.test(k)||!num(v)||(v as number)<0)return bad();f.mileage[k]=v as number;}
-  for(const [k,v] of Object.entries(raw.departures)){if(!['A','B','C','D'].includes(k)||!Array.isArray(v)||v.length>256)return bad();let last=-Infinity;f.departures[k as 'A']=v.map((d:any)=>{if(!rec(d)||!num(d.minute)||d.minute<last||d.minute>w.clock.minutes+1e-6||!/^train-\d+$/.test(d.vehicleId))return bad();last=d.minute;return {minute:d.minute,vehicleId:d.vehicleId};});}
-  for(let i=0;i<w.passengers.completed.length;i++){const e=w.passengers.completed[i],entry=w.economy.ledger.find(l=>l.id===`fare:${e.eventId}`);if(i<f.settledCount?entry?.amount!==e.amount||entry?.posting?.category!=='fare':!!entry)return bad();}
+  for(const [k,v] of Object.entries(raw.departures)){if(!['A','B','C','D','A>B','B>A','B>D','D>B'].includes(k)||!Array.isArray(v)||v.length>256)return bad();let last=-Infinity;f.departures[k as 'A']=v.map((d:any)=>{if(!rec(d)||!num(d.minute)||d.minute<last||d.minute>w.clock.minutes+1e-6||!/^train-\d+$/.test(d.vehicleId))return bad();last=d.minute;return {minute:d.minute,vehicleId:d.vehicleId};});}
+  const ledgerById=new Map(w.economy.ledger.map(e=>[e.id,e]));
+  for(let i=0;i<w.passengers.completed.length;i++){const e=w.passengers.completed[i],entry=ledgerById.get(`fare:${e.eventId}`);if(i<f.settledCount?entry?.amount!==e.amount||entry?.posting?.category!=='fare':!!entry)return bad();}
   const completionIds=new Set(w.passengers.completed.slice(0,f.settledCount).map(e=>`fare:${e.eventId}`));
   if(w.economy.ledger.some(e=>e.posting?.category==='fare'&&!completionIds.has(e.id)))return bad();
   if(!Array.isArray(raw.days))return bad();const seen=new Set<number>();const shadow={...w,finance:f};

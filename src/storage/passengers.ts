@@ -1,3 +1,4 @@
+import { patience,stationUnlocked } from '../simulation/development';
 import { allTrains } from '../world/fleet';
 import { CONFIG } from '../config';
 import { STATIONS, type StationId } from '../world/map';
@@ -6,9 +7,10 @@ import type { WorldState } from '../world/state';
 const rec=(v:unknown):v is Record<string,any>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const integer=(v:unknown):v is number=>Number.isSafeInteger(v)&&(v as number)>=0;
 const finite=(v:unknown):v is number=>typeof v==='number'&&Number.isFinite(v);
-const station=(id:unknown):id is StationId=>STATIONS.some(s=>s.id===id&&s.unlocked);
+
 function bad():never {throw new Error('乘客存档、排队时间、容量或行程统计不一致，当前世界未更改。');}
 export function validatePassengers(raw:unknown,w:WorldState):PassengerState {
+  const station=(id:unknown):id is StationId=>STATIONS.some(s=>s.id===id&&stationUnlocked(w,s.id));
   if(!rec(raw)||!integer(raw.nextBatchSerial)||raw.nextBatchSerial<1||!integer(raw.nextRideSerial)||raw.nextRideSerial<1||raw.lastDemandMinute!==Math.floor(w.clock.minutes+1e-7)||!rec(raw.carry)||!rec(raw.totals))return bad();
   const p=newPassengers(w.clock.minutes);p.nextBatchSerial=raw.nextBatchSerial;p.nextRideSerial=raw.nextRideSerial;
   if(Object.keys(raw.carry).sort().join()!==Object.keys(p.carry).sort().join())return bad();
@@ -30,7 +32,7 @@ export function validatePassengers(raw:unknown,w:WorldState):PassengerState {
   let previous=-Infinity,previousSerial=0;
   p.waiting=raw.waiting.map((b:any)=>{
     const item=batch(b),serial=Number(b.id.slice(6));
-    if(waits.has(b.id)||w.clock.minutes-b.arrivedAt>=CONFIG.patienceMinutes+1e-6||item.arrivedAt<previous||item.arrivedAt===previous&&serial<previousSerial)return bad();
+    if(waits.has(b.id)||w.clock.minutes-b.arrivedAt>=patience(w,b.from)+1e-6||item.arrivedAt<previous||item.arrivedAt===previous&&serial<previousSerial)return bad();
     waits.add(b.id);previous=item.arrivedAt;previousSerial=serial;return item;
   });
   p.onboard=raw.onboard.map((b:any)=>{

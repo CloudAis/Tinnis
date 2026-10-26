@@ -14,6 +14,12 @@ export const CONFIG = {
     tourismWeights: [.05,.05,.05,.05,.05,.1,.3,.7,1.4,2,2.5,2.5,2.3,2.4,2.5,2,1.8,.9,.6,.3,.2,.1,.05,.05],
   },
   patienceMinutes: 240, demolitionRefund: 0.5, vehicleRefund: 0.6,
+  upgrades: {
+    shelter:{name:'候车设施',cost:3000,maintenance:20,patienceBonus:120,effect:'耐心 +120 分钟，改善等候舒适度'},
+    service:{name:'站台服务',cost:4500,maintenance:35,dwellMinutes:6,effect:'本站停站时间由 10 缩至 6 分钟'},
+    shops:{name:'站区商店',cost:6000,maintenance:60,rentPerPassenger:2,effect:'每名完成到达的旅客带来 2 元租金'},
+  },
+  growth:{thresholds:[100,180],cooldownMinutes:1440,minimumHourlyArrivals:4,unlockPassengers:200},
   operating: { mileagePerKilometer: 180 },
   maintenance: { stationDaily: 80, trackPerSegmentDaily: 30 },
   clock: { stepSeconds: 0.05, minutesPerSecond: 2, dayMinutes: 1_440, startMinutes: 480 },

@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {setTimeout as delay} from 'node:timers/promises';
-const prefix=SCHEMA>=4?'stage-4-train':'stage-3';
+const prefix=`stage-${SCHEMA}-train`;
 const port=4177,base=`http://127.0.0.1:${port}/`;
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(port),'--strictPort'],{stdio:'pipe'});server.stdout.resume();server.stderr.resume();
 let browser;const checks=[],errors=[],observations=[];
@@ -38,19 +38,19 @@ try{
     await mode('line');const old=(await snap()).world.fleet.vehicle.route.stops;await page.locator('#reverse-stops').click();assert.deepEqual((await snap()).world.fleet.vehicle.route.stops,old);assert.ok((await snap()).world.fleet.vehicle.pendingStops);
     await mode('train');await page.locator('#follow-train').click();await resume();await page.waitForFunction(()=>window.__ALONGLINE__.snapshot().world.fleet.vehicle.legElapsed>30);await pause();await page.screenshot({path:`artifacts/${prefix}-cruise.png`});await resume();
   });
-  await check('braking save/reload retains location and locked fare-independent money',async()=>await reloadAt('braking'));
+  await check('braking save/reload retains location and financial receipts without repeat charges',async()=>await reloadAt('braking'));
   await check('dwell save/reload and safe pending route applied at station',async()=>{
     await reloadAt('dwelling');const v=(await snap()).world.fleet.vehicle;assert.deepEqual(v.route.stops,['B','A']);assert.equal(v.pendingStops,null);
   });
   await check('three full round trips observed in real browser with configured 4x time',async()=>{
     await page.waitForFunction(()=>window.__ALONGLINE__.snapshot().world.fleet.vehicle.legsCompleted>=6,null,{timeout:180000});await pause();
-    const s=await snap();assert.ok(s.world.fleet.vehicle.legsCompleted>=6);assert.equal(s.world.economy.balance,50000);assert.equal(s.world.economy.ledger.filter(e=>e.vehicle?.kind==='buy').length,1);assert.equal(s.render.trainModels,1);observations.push({threeRoundTrips:s.world.fleet.vehicle.legsCompleted/2,minutes:s.world.clock.minutes});
+    const s=await snap();assert.ok(s.world.fleet.vehicle.legsCompleted>=6);assert.equal(s.world.economy.balance,100000+s.world.economy.ledger.reduce((n,e)=>n+e.amount,0));assert.equal(s.world.economy.ledger.filter(e=>e.vehicle?.kind==='buy').length,1);assert.equal(s.render.trainModels,1);observations.push({threeRoundTrips:s.world.fleet.vehicle.legsCompleted/2,minutes:s.world.clock.minutes});
     await mode('train');await page.screenshot({path:`artifacts/${prefix}-follow.png`});
   });
   await check('stop safely, return depot, sell once, second model can be bought',async()=>{
     await page.locator('#stop-train').click();await resume();await page.waitForFunction(()=>window.__ALONGLINE__.snapshot().world.fleet.vehicle.status==='stopped',null,{timeout:30000});await pause();await mode('train');await page.locator('#withdraw-train').click();assert.equal((await snap()).world.fleet.vehicle.status,'depot');
-    await page.locator('#sell-train').click();await page.locator('#confirm-construction').evaluate(b=>{b.click();b.click();});assert.equal((await snap()).world.economy.balance,63200);
-    await page.locator('[data-buy=large]').click();await page.locator('#confirm-construction').click();assert.equal((await snap()).world.economy.balance,25200);assert.equal((await snap()).world.fleet.vehicle.id,'train-0002');assert.equal((await snap()).world.fleet.vehicle.type,'large');await page.waitForFunction(()=>window.__ALONGLINE__.snapshot().render.trainModels===1);
+    const beforeSale=(await snap()).world.economy.balance;await page.locator('#sell-train').click();await page.locator('#confirm-construction').evaluate(b=>{b.click();b.click();});assert.equal((await snap()).world.economy.balance,beforeSale+13200);
+    await page.locator('[data-buy=large]').click();await page.locator('#confirm-construction').click();assert.equal((await snap()).world.economy.balance,beforeSale+13200-38000);assert.equal((await snap()).world.fleet.vehicle.id,'train-0002');assert.equal((await snap()).world.fleet.vehicle.type,'large');await page.waitForFunction(()=>window.__ALONGLINE__.snapshot().render.trainModels===1);
   });
   await check('no JavaScript errors',async()=>assert.deepEqual(errors,[]));
   await writeFile(SCHEMA>=4?'artifacts/train-regression-report.json':'artifacts/train-report.json',JSON.stringify({at:new Date().toISOString(),browser:await browser.version(),checks,observations,final:await snap(),errors},null,2));

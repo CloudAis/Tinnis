@@ -1,3 +1,4 @@
+import { GROWTH_PLOTS } from '../world/development';
 import * as THREE from 'three';
 import { EDGES, edgePoints } from '../world/railway';
 import { MAP, STATIONS, TOWNS, seededRandom } from '../world/map';
@@ -59,9 +60,9 @@ export function makeLandscape() {
   const placements=[
     [-73,3,0],[-63,2,1],[-51,-1,0],[-40,2,2],[-68,17,2],[-57,18,1],[-42,16,3],[-78,-10,2],[-65,-12,0],[-52,-12,1],[-42,-12,2],
     [-29,-22,0],[-18,-30,3],[-6,-33,0],[4,-28,2],[-31,-10,1],[-23,0,2],[0,-9,3],[-3,-22,2],
-    [42,-20,1],[51,-31,0],[63,-33,2],[73,-25,1],[73,-11,0],[45,-9,3],
+    [42,-20,1],[51,-31,0],[63,-33,2],[73,-25,1],[73,-11,0],[33,-19,3],
   ];
-  placements.forEach(([x,z,style],i)=>{const h=createHouse(style,.8+random()*.27);h.position.set(x,2.1,z);h.rotation.y=i%4===0?Math.PI/2:0;g.add(h);});
+  placements.forEach(([x,z,style],i)=>{const scale=.8+random()*.27;if(Object.values(GROWTH_PLOTS).flat().some(p=>p[0]===x&&p[1]===z))return;const h=createHouse(style,scale);h.position.set(x,2.1,z);h.rotation.y=i%4===0?Math.PI/2:0;g.add(h);});
   // Reusable station-style civic buildings; actual station plots remain empty.
   for(const [x,z] of [[-73,27],[-21,-40],[58,-23]]) {const h=createStationHouse();h.position.set(x,2.1,z);g.add(h);}
   // Port, lighthouse, fishing boat and timber quays.
@@ -95,7 +96,7 @@ export function makeLandscape() {
     const awayTown=TOWNS.every(t=>Math.hypot(x-t.position[0],z-t.position[2])>21);
     const awayStation=STATIONS.every(s=>Math.hypot(x-s.position[0],z-s.position[2])>10);
     const awayRiver=Math.abs(x-(12+Math.sin(z*.1)*5))>10;
-    const clearRail=EDGES.filter(e=>e.unlocked).every(e=>{
+    const clearRail=EDGES.filter(e=>e.corridor!=='BC').every(e=>{
       const [a,b]=edgePoints(e.id);const dx=b[0]-a[0],dz=b[2]-a[2];
       const t=THREE.MathUtils.clamp(((x-a[0])*dx+(z-a[2])*dz)/(dx*dx+dz*dz),0,1);
       return Math.hypot(x-a[0]-dx*t,z-a[2]-dz*t)>5;

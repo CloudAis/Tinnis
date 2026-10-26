@@ -1,3 +1,5 @@
+import { stationUnlocked } from '../simulation/development';
+import { createDevelopmentModels } from './development';
 import { allTrains } from '../world/fleet';
 import { PlatformCrowd } from './passengers';
 import { createTrainModel } from './train';
@@ -23,6 +25,8 @@ export class WorldView {
   private proxies: THREE.Object3D[] = [];
   private plots=new Map<StationId,THREE.Group>();
   private railwayModels=new THREE.Group();
+  private developmentModels=new THREE.Group();
+  private developmentKey='';
   private preview=new THREE.Group();
   private trainModels=new Map<string,THREE.Group>();
   private trainKey='';
@@ -170,7 +174,7 @@ export class WorldView {
       this.plots.forEach((plot,id)=>{plot.visible=!world.railway.stations[id];});
       this.labels.querySelectorAll<HTMLButtonElement>('.station-pin').forEach(b=>{
         const id=b.dataset.station as StationId;const built=world.railway.stations[id];
-        b.classList.toggle('built',!!built);b.querySelector('.pin-caption')!.textContent=built?built.name:STATIONS.find(s=>s.id===id)!.unlocked?'候选站位':'尚未开放';
+        b.classList.toggle('built',!!built);b.querySelector('.pin-caption')!.textContent=built?built.name:stationUnlocked(world,id)?'候选站位':'尚未开放';
         b.setAttribute('aria-label',`选择${built?.name??STATIONS.find(s=>s.id===id)!.name}${built?'':'候选站位'}`);
       });
       this.renderer.shadowMap.needsUpdate=true;this.dirty=true;
@@ -197,7 +201,13 @@ export class WorldView {
       }
     }
   }
+  updateDevelopment(world:WorldState){
+    const key=JSON.stringify([world.towns,world.development.upgrades,world.development.unlockedD]);if(key===this.developmentKey)return;this.developmentKey=key;
+    disposeGeometry(this.developmentModels);this.scene.remove(this.developmentModels);this.developmentModels=createDevelopmentModels(world);this.scene.add(this.developmentModels);this.dirty=true;this.renderer.shadowMap.needsUpdate=true;
+    for(const b of this.labels.querySelectorAll<HTMLButtonElement>('[data-station]')){const id=b.dataset.station as StationId,unlocked=stationUnlocked(world,id);b.classList.toggle('locked',!unlocked);if(!world.railway.stations[id])b.querySelector('.pin-caption')!.textContent=unlocked?'候选站位':'尚未开放';}
+  }
   updateTrain(world:WorldState,poses:Pose[]){
+    this.updateDevelopment(world);
     if(this.crowd.update(world))this.dirty=true;
     const vehicles=allTrains(world.fleet),ids=new Set(vehicles.map(v=>v.id));
     for(const [id,model] of this.trainModels)if(!ids.has(id)){disposeGeometry(model);this.scene.remove(model);this.trainModels.delete(id);this.dirty=true;}
@@ -228,5 +238,5 @@ export class WorldView {
     this.renderer.render(this.scene,this.camera);
     this.renderedFrames++;this.paintMs.push(performance.now()-started);if(this.paintMs.length>120)this.paintMs.shift();
   }
-  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,trainModels:this.trainModels.size,trainVisible:[...this.trainModels.values()].some(m=>m.visible),visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
+  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,developmentModels:this.developmentModels.children.length,trainModels:this.trainModels.size,trainVisible:[...this.trainModels.values()].some(m=>m.visible),visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
 }

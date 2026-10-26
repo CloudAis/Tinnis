@@ -1,3 +1,4 @@
+import { newDevelopment,type DevelopmentState,type UpgradeReceipt } from './development';
 import { newFinance, type FinanceState, type Posting } from './finance';
 import { newPassengers, type PassengerState } from './passengers';
 import { newFleet, type FleetState, type VehicleReceipt } from './fleet';
@@ -6,7 +7,7 @@ import { CONFIG } from '../config';
 import { MAP, STATIONS, TOWNS, type StationId, type TownId } from './map';
 export type Speed = 1 | 2 | 4;
 export interface CameraState { position: [number, number, number]; target: [number, number, number] }
-export interface LedgerEntry { id: string; amount: number; reason: string; tick: number; construction?: ConstructionReceipt; vehicle?: VehicleReceipt; posting?: Posting; minute?:number }
+export interface LedgerEntry { id: string; amount: number; reason: string; tick: number; construction?: ConstructionReceipt; vehicle?: VehicleReceipt; posting?: Posting; upgrade?:UpgradeReceipt; minute?:number }
 export interface WorldState {
   map: { id: string; version: number; seed: number };
   clock: { tick: number; minutes: number; paused: boolean; speed: Speed };
@@ -17,7 +18,7 @@ export interface WorldState {
   railway: RailwayState;
   fleet: FleetState;
   passengers: PassengerState;
-  finance: FinanceState;
+  finance: FinanceState; development:DevelopmentState;
 }
 export const DEFAULT_CAMERA: CameraState = { position: [148, 145, 180], target: [0, 0, -3] };
 export function createWorld(): WorldState {
@@ -31,7 +32,7 @@ export function createWorld(): WorldState {
     railway: newRailway(),
     fleet: newFleet(),
     passengers: newPassengers(),
-    finance: newFinance(),
+    finance: newFinance(),development:newDevelopment(),
   };
 }
 export function isStationId(id: unknown): id is StationId { return STATIONS.some(s => s.id === id); }

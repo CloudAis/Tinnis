@@ -29,19 +29,22 @@ export interface RailwayState {
   tracks: Partial<Record<EdgeId, Purchase>>;
   line: { id: 'line-main'; name: string; stops: StationId[] };
 }
-export interface EditorState { mode: 'inspect' | 'track' | 'line' | 'train' | 'passengers' | 'business'; from: NodeId | null; to: NodeId | null }
+export interface EditorState { mode: 'inspect' | 'track' | 'line' | 'train' | 'passengers' | 'business' | 'growth'; from: NodeId | null; to: NodeId | null }
 export const newEditor = (): EditorState => ({ mode: 'inspect', from: null, to: null });
 export const newRailway = (): RailwayState => ({ revision: 0, nextSerial: 1, stations: {}, tracks: {}, line: { id: 'line-main', name: '海风线', stops: ['A', 'B'] } });
 export const nodeById = (id: string) => NODES.find(n => n.id === id);
 export const edgeById = (id: string) => EDGES.find(e => e.id === id);
 export const edgePrice = (id: EdgeId) => { const e = edgeById(id)!; return Math.round(CONFIG.trackCosts[e.corridor] * e.share); };
 export const edgePoints = (id: EdgeId): readonly Point[] => { const e = edgeById(id)!; return [nodeById(e.from)!.position, nodeById(e.to)!.position]; };
-export const edgeLength = (id: EdgeId) => { const [a,b] = edgePoints(id); return Math.hypot(...a.map((n,i) => n-b[i])); };
+export const B_FRAME={sin:11/Math.hypot(11,7),cos:-7/Math.hypot(11,7),throat:9,parallel:5,offset:3.8};
+export function edgePolyline(id:EdgeId):Point[]{const p=[...edgePoints(id)];if(id==='bd-river'){const b=STATIONS[1].position;p.splice(1,0,[b[0]+B_FRAME.sin*9,2.2,b[2]+B_FRAME.cos*9]);}return p;}
+export const edgeLength = (id:EdgeId)=>edgePolyline(id).slice(1).reduce((n,b,i)=>{const a=edgePolyline(id)[i];return n+Math.hypot(b[0]-a[0],b[2]-a[2]);},0);
+export function pathPoints(nodes:NodeId[],edges:EdgeId[]):Point[]{const result:Point[]=[];for(let i=0;i<edges.length;i++){const p=edgePolyline(edges[i]);if(edgeById(edges[i])!.from!==nodes[i])p.reverse();result.push(...(i?p.slice(1):p));}return result;}
 export function assetExists(key: string): key is AssetKey {
   return STATIONS.some(s => `station:${s.id}` === key) || EDGES.some(e => `track:${e.id}` === key);
 }
-export function assetUnlocked(key: AssetKey) {
-  return key.startsWith('station:') ? STATIONS.find(s => s.id === key.slice(8))!.unlocked : edgeById(key.slice(6))!.unlocked;
+export function assetUnlocked(key: AssetKey,unlockedD=false) {
+  return key.startsWith('station:') ? (STATIONS.find(s => s.id === key.slice(8))!.unlocked||key==='station:D'&&unlockedD) : (edgeById(key.slice(6))!.unlocked||edgeById(key.slice(6))!.corridor==='BD'&&unlockedD);
 }
 export function stationName(r: RailwayState, id: StationId) { return r.stations[id]?.name ?? STATIONS.find(s => s.id === id)!.name; }
 export function validName(raw: string) {
@@ -62,7 +65,7 @@ export function findPath(from: string, to: string, accept: (id: EdgeId) => boole
     const current = queue.shift()!;
     if (visited.has(current.node)) continue;
     visited.add(current.node);
-    if (current.node === to) return { ...current, points: current.nodes.map(id => nodeById(id)!.position) };
+    if (current.node === to) return { ...current, points: pathPoints(current.nodes,current.edges) };
     for (const e of EDGES) {
       if (!accept(e.id) || e.from !== current.node && e.to !== current.node) continue;
       const next = e.from === current.node ? e.to : e.from;

@@ -10,7 +10,7 @@ export const TOWNS = [
 export const STATIONS = [
   { id: 'A', name: '汐港站', townId: 'town-shiokou', position: [-51, 2.2, 29] as Point, unlocked: true, optional: false, berths: 1, description: '面朝海湾的始发站。连接港口与主镇，让第一班地方列车从这里出发。' },
   { id: 'B', name: '青溪站', townId: 'town-aokawa', position: [-12, 2.2, 2] as Point, unlocked: true, optional: false, berths: 2, description: '居民镇的生活入口。预留两个会让泊位，为未来的双车交会做好准备。' },
-  { id: 'D', name: '枫泉站', townId: 'town-kaede', position: [58, 2.2, -6] as Point, unlocked: false, optional: false, berths: 1, description: '山谷里的温泉小镇。将在第 7 阶段开放旅游支线，与 A—B 共用主线。' },
+  { id: 'D', name: '枫泉站', townId: 'town-kaede', position: [58, 2.2, -6] as Point, unlocked: false, optional: false, berths: 1, description: '山谷里的温泉小镇。运量达到 200 人且有完整盈利日后开放旅游支线，与 A—B 共用主线。' },
   { id: 'C', name: '河谷观景站', townId: null, position: [35, 2.2, 21] as Point, unlocked: false, optional: true, berths: 1, description: '可选的河谷观景支线。核心运营完成后，再考虑把列车开往这里。' },
 ] as const;
 export const CANDIDATE_NODES = [

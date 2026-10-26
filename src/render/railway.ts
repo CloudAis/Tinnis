@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { STATIONS, type Point } from '../world/map';
-import { EDGES, edgePoints, type RailwayState } from '../world/railway';
+import { EDGES, edgePoints, edgePolyline, B_FRAME, type RailwayState } from '../world/railway';
 import { batchStatic, box, createStationHouse } from './models';
 
 function segment(root:THREE.Group,a:Point,b:Point,offset=0) {
@@ -14,11 +14,14 @@ function segment(root:THREE.Group,a:Point,b:Point,offset=0) {
 export function createRailwayModels(r:RailwayState) {
   const root=new THREE.Group();
   for(const e of EDGES)if(r.tracks[e.id]) {
-    const [a,b]=edgePoints(e.id);const dx=b[0]-a[0],dz=b[2]-a[2],length=Math.hypot(dx,dz);
-    // The station owns its apron; trim the matching straight connector to avoid coplanar rails.
-    const start=e.from==='node-a'&&r.stations.A?5:0;
-    const end=e.to==='node-b'&&r.stations.B?9:0;
-    segment(root,[a[0]+dx/length*start,a[1],a[2]+dz/length*start],[b[0]-dx/length*end,b[1],b[2]-dz/length*end]);
+    const points=edgePolyline(e.id);
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i],dx=b[0]-a[0],dz=b[2]-a[2],length=Math.hypot(dx,dz);
+      const start=i===1&&e.from==='node-a'&&r.stations.A?5:i===1&&e.from==='node-b'&&r.stations.B?9:0;
+      const end=i===points.length-1&&e.to==='node-b'&&r.stations.B?9:i===points.length-1&&e.to==='node-d'&&r.stations.D?5:0;
+      if(length-start-end>1e-6)segment(root,[a[0]+dx/length*start,2.2,a[2]+dz/length*start],[b[0]-dx/length*end,2.2,b[2]-dz/length*end]);
+      if(e.id==='bd-river'&&i===2){const bridge=new THREE.Group();bridge.position.set((a[0]+b[0])/2,0,(a[2]+b[2])/2);bridge.rotation.y=Math.atan2(dx,dz);box(bridge,[3.2,.5,length],[0,1.83,0],'#c2bda6');for(const z of [-length*.3,length*.3])box(bridge,[2.8,1.8,.9],[0,.8,z],'#a7aa99');root.add(bridge);}
+    }
   }
   for(const s of STATIONS){
     if(!r.stations[s.id])continue;

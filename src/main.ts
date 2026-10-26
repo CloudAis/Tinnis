@@ -1,3 +1,4 @@
+import { describeUpgrade,executeUpgrade,type UpgradeCommand } from './simulation/development';
 import { setBusiness } from './simulation/finance';
 import { passengerStats } from './world/passengers';
 import { describeTrainCommand, executeTrainCommand, type TrainCommand } from './simulation/train';
@@ -18,6 +19,7 @@ let view:WorldView|undefined;
 let editor:EditorState=newEditor();
 let pending:Command|null=null;
 let pendingTrain:TrainCommand|null=null;
+let pendingUpgrade:UpgradeCommand|null=null;
 let saveBlocked=!!initialNotice&&initialNotice.includes('初始世界');
 const simulation=new Simulation(world);
 function refresh(){view?.syncRailway(world,editor);ui.update(world,editor);}
@@ -36,11 +38,11 @@ function request(c:Command){
   const d=describeCommand(world,c);
   if(!d.ok){ui.toast(d.message,true);return;}
   if(c.type==='rename-station'||c.type==='set-stops'){commit(c);return;}
-  pendingTrain=null;pending=c;ui.confirmation(d.message,d.amount,c.type.startsWith('remove'));
+  pendingTrain=null;pendingUpgrade=null;pending=c;ui.confirmation(d.message,d.amount,c.type.startsWith('remove'));
 }
 function requestTrain(c:TrainCommand){
   const d=describeTrainCommand(world,c);if(!d.ok){ui.toast(d.message,true);return;}
-  if(c.type==='buy'||c.type==='sell'){pendingTrain=c;pending=null;ui.confirmation(d.message,d.amount,c.type==='sell',c.type==='buy'?'确认购车':'确认出售');}
+  if(c.type==='buy'||c.type==='sell'){pendingTrain=c;pending=null;pendingUpgrade=null;ui.confirmation(d.message,d.amount,c.type==='sell',c.type==='buy'?'确认购车':'确认出售');}
   else commitTrain(c);
 }
 function commitTrain(c:TrainCommand){const d=executeTrainCommand(world,c);simulation.resetElapsed();refresh();ui.toast(d.message,!d.ok);if(d.ok)store();}
@@ -52,7 +54,7 @@ function store(manual=false){
 }
 function restore(raw:string){
   const saved=decodeSave(raw); // Atomic validation before replacing any live state.
-  world=saved.world;simulation.state=world;simulation.resetElapsed();editor=newEditor();pending=null;pendingTrain=null;ui.closeConfirmation();
+  world=saved.world;simulation.state=world;simulation.resetElapsed();editor=newEditor();pending=null;pendingTrain=null;pendingUpgrade=null;ui.closeConfirmation();
   view?.setCamera(world.camera);view?.setSelection(world.selected);refresh();saveBlocked=false;
 }
 const ui=new UI(document.getElementById('app')!,{
@@ -64,7 +66,8 @@ const ui=new UI(document.getElementById('app')!,{
   command:request,
   trainCommand:requestTrain,
   business(fare,interval,revision){const result=setBusiness(world,fare,interval,revision);ui.toast(result.message,!result.ok);refresh();if(result.ok)store();},
-  confirm(){const c=pending,t=pendingTrain;pending=null;pendingTrain=null;ui.closeConfirmation();if(c)commit(c);if(t)commitTrain(t);},
+  upgrade(c){const d=describeUpgrade(world,c);if(!d.ok){ui.toast(d.message,true);return;}pending=null;pendingTrain=null;pendingUpgrade=c;ui.confirmation(d.message,d.amount,!!c.remove,c.remove?'确认拆除升级':'确认站区升级');},
+  confirm(){const c=pending,t=pendingTrain,u=pendingUpgrade;pending=null;pendingTrain=null;pendingUpgrade=null;ui.closeConfirmation();if(c)commit(c);if(t)commitTrain(t);if(u){const d=executeUpgrade(world,u);refresh();ui.toast(d.message,!d.ok);if(d.ok)store();}},
   focus(id){world.fleet.follow=false;view?.focus(id);},home(){world.fleet.follow=false;view?.resetCamera();select(null);},zoom(f){view?.zoom(f);},
   save(){store(true);},
   load(){try{const saved=readLocal();if(!saved){ui.toast('还没有本地存档，可以先保存当前进度。');return;}restore(JSON.stringify(saved));ui.toast('已读取存档，地图与视角已恢复。');}catch(e){ui.toast((e as Error).message,true);}},
@@ -77,7 +80,7 @@ const ui=new UI(document.getElementById('app')!,{
     catch(e){ui.toast((e as Error).message,true);}
   },
 });
-document.getElementById('construction-dialog')!.addEventListener('close',()=>{if(!(document.getElementById('construction-dialog') as HTMLDialogElement).open){pending=null;pendingTrain=null;}});
+document.getElementById('construction-dialog')!.addEventListener('close',()=>{if(!(document.getElementById('construction-dialog') as HTMLDialogElement).open){pending=null;pendingTrain=null;pendingUpgrade=null;}});
 refresh();
 try{
   view=new WorldView(document.getElementById('viewport')!,select,()=>{},nodeSelect);

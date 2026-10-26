@@ -30,7 +30,7 @@ try{
   await check('candidate selection, B passing berths, locked D, cancel',async()=>{
     await page.locator('[data-station="B"]').click();assert.equal((await snap()).world.selected,'B');
     assert.match(await page.locator('#selection-panel').innerText(),/两个会让泊位/);
-    await page.locator('[data-route="D"]').click();assert.match(await page.locator('#selection-panel').innerText(),/第 7 阶段/);
+    await page.locator('[data-route="D"]').click();assert.match(await page.locator('#selection-panel').innerText(),/成长|200 人/);
     await page.locator('canvas').focus();await page.keyboard.press('Escape');assert.equal((await snap()).world.selected,null);
     await page.locator('[data-station="A"]').click();await page.locator('canvas').click({position:{x:90,y:80}});assert.equal((await snap()).world.selected,null);
   })();
