@@ -1,3 +1,4 @@
+import { allTrains } from '../world/fleet';
 import { CONFIG } from '../config';
 import { STATIONS, type StationId } from '../world/map';
 import { DEMAND_PAIRS, newPassengers, passengerStats, type PassengerState, type WaitingBatch, type RidingBatch, type CompletionEvent } from '../world/passengers';
@@ -33,7 +34,7 @@ export function validatePassengers(raw:unknown,w:WorldState):PassengerState {
     waits.add(b.id);previous=item.arrivedAt;previousSerial=serial;return item;
   });
   p.onboard=raw.onboard.map((b:any)=>{
-    const item=rider(b);if(!w.fleet.vehicle?.route||w.fleet.vehicle.id!==item.vehicleId)return bad();return item;
+    const item=rider(b);if(!allTrains(w.fleet).some(v=>v.route&&v.id===item.vehicleId))return bad();return item;
   });
   p.completed=raw.completed.map((b:any):CompletionEvent=>{
     const item=rider(b);
@@ -43,6 +44,7 @@ export function validatePassengers(raw:unknown,w:WorldState):PassengerState {
   if(!Array.isArray(raw.released))return bad();
   p.released=raw.released.map((b:any)=>{const item=rider(b);if(!station(b.at)||!finite(b.releasedAt)||b.releasedAt<b.boardedAt||b.releasedAt>w.clock.minutes+1e-6||!['returned','cancelled'].includes(b.reason))return bad();return {...item,at:b.at,releasedAt:b.releasedAt,reason:b.reason};});
   const stats=passengerStats(p),v=w.fleet.vehicle;
-  if(!stats.conserved||p.totals.potential!==p.totals.accepted+p.totals.noService+p.totals.priceRejected||p.nextBatchSerial-1>p.totals.accepted||p.nextRideSerial-1!==rides.size||p.nextRideSerial-1>p.totals.accepted||stats.onboard>(v?CONFIG.vehicles[v.type].capacity:0)||stats.onboard>0&&v?.status==='depot')return bad();
+  if(!stats.conserved||p.totals.potential!==p.totals.accepted+p.totals.noService+p.totals.priceRejected||p.nextBatchSerial-1>p.totals.accepted||p.nextRideSerial-1!==rides.size)return bad();
+  for(const train of allTrains(w.fleet)){const load=p.onboard.filter(b=>b.vehicleId===train.id).reduce((n,b)=>n+b.count,0);if(load>CONFIG.vehicles[train.type].capacity||load>0&&train.status==='depot')return bad();}
   return p;
 }

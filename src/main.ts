@@ -96,7 +96,7 @@ const frames:number[]=[];
 function frame(now:number){
   const delta=(now-previous)/1000;previous=now;
   if(!document.hidden&&view){
-    simulation.advance(delta);view.updateTrain(world,simulation.visualPose());view.render();
+    simulation.advance(delta);view.updateTrain(world,simulation.visualPoses());view.render();
     frames.push(delta*1000);if(frames.length>180)frames.shift();
     if(now-lastUI>160){refresh();lastUI=now;}
   }

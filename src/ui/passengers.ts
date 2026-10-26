@@ -1,3 +1,4 @@
+import { allTrains } from '../world/fleet';
 import { CONFIG } from '../config';
 import { STATIONS } from '../world/map';
 import { stationName, type EditorState } from '../world/railway';
@@ -8,7 +9,7 @@ import type { WorldState } from '../world/state';
 const esc=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export class PassengerUI {
   update(w:WorldState,editor:EditorState){
-    const s=passengerStats(w.passengers),v=w.fleet.vehicle,capacity=v?CONFIG.vehicles[v.type].capacity:0;
+    const s=passengerStats(w.passengers),v=w.fleet.vehicle,capacity=allTrains(w.fleet).reduce((n,t)=>n+CONFIG.vehicles[t.type].capacity,0);
     const load=capacity?Math.round(s.onboard/capacity*100):0;
     const waiting=(id:string)=>w.passengers.waiting.filter(b=>b.from===id).reduce((n,b)=>n+b.count,0);
     document.querySelectorAll<HTMLButtonElement>('[data-station]').forEach(b=>{const id=b.dataset.station!;b.title=`${stationName(w.railway,id as any)} · 候车 ${waiting(id)} 人`;});

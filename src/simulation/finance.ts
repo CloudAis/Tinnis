@@ -1,3 +1,4 @@
+import { allTrains } from '../world/fleet';
 import { CONFIG } from '../config';
 import type { WorldState } from '../world/state';
 import type { StationId } from '../world/map';
@@ -28,8 +29,8 @@ function accrue(w:WorldState,category:'fixed'|'mileage'|'maintenance'|'rent',val
   if(category==='rent')transact(w,`rent:${w.clock.tick}`,units,'站区商店租金',undefined,undefined,{category,day,operating:true});
   else transact(w,id,amount,{fixed:'车辆固定费',mileage:'实际里程运行费',maintenance:'站轨维护费'}[category],undefined,undefined,{category,day,operating:true,cumulative:true});
 }
-export function financialHalt(w:WorldState){
-  const v=w.fleet.vehicle;if(!v?.route||w.economy.balance>0)return;
+export function financialHalt(w:WorldState,v=w.fleet.vehicle){
+  if(!v?.route||w.economy.balance>0)return;
   v.stopRequested=true;
   if(v.currentStation){
     // Before departure, return accepted boardings to their original queue, retaining age and identity history.
@@ -43,18 +44,17 @@ export function financialHalt(w:WorldState){
 }
 export function stepFinance(w:WorldState){
   const f=w.finance,now=w.clock.minutes,elapsed=now-f.lastMinute;if(elapsed<=1e-8)return;
-  const v=w.fleet.vehicle,mileage=v?Math.max(0,v.totalDistance-(f.mileage[v.id]??0)):0;
-  if(v)f.mileage[v.id]=v.totalDistance;
+  const vehicles=allTrains(w.fleet);let mileage=0;for(const v of vehicles){mileage+=Math.max(0,v.totalDistance-(f.mileage[v.id]??0))*CONFIG.vehicles[v.type].mileageFactor;f.mileage[v.id]=v.totalDistance;}
   let cursor=f.lastMinute;
   while(cursor<now-1e-8){const day=Math.floor((cursor+1e-7)/1440),end=Math.min(now,(day+1)*1440),portion=end-cursor;
-    const fixed=v?CONFIG.vehicles[v.type].dailyCost:0;
+    const fixed=vehicles.reduce((n,v)=>n+CONFIG.vehicles[v.type].dailyCost,0);
     const maintenance=Object.keys(w.railway.stations).length*CONFIG.maintenance.stationDaily+Object.keys(w.railway.tracks).length*CONFIG.maintenance.trackPerSegmentDaily;
     accrue(w,'fixed',fixed*portion/1440,day);accrue(w,'maintenance',maintenance*portion/1440,day);
-    accrue(w,'mileage',mileage/1000*CONFIG.operating.mileagePerKilometer*(v?CONFIG.vehicles[v.type].mileageFactor:1)*portion/elapsed,day);
+    accrue(w,'mileage',mileage/1000*CONFIG.operating.mileagePerKilometer*portion/elapsed,day);
     cursor=end;
     if(end>= (day+1)*1440-1e-7&&!f.days.some(d=>d.day===day))f.days.push(dayReport(w,day));
   }
-  f.lastMinute=now;financialHalt(w);
+  f.lastMinute=now;for(const v of vehicles)financialHalt(w,v);
 }
 export function canDepart(w:WorldState,station:StationId){
   if(w.economy.balance<=0)return '资金已耗尽，停止新发车';
@@ -67,4 +67,4 @@ export function setBusiness(w:WorldState,fare:number,interval:number,revision:nu
   if(revision!==w.finance.revision||!Number.isInteger(fare)||fare<10||fare>30||![120,180,240].includes(interval))return {ok:false,message:'票价或班次无效，设置未更改。'};
   w.finance.fare=fare;w.finance.interval=interval as 120|180|240;w.finance.revision++;return {ok:true,message:'票价与目标班次已保存，车上乘客保留上车票价。'};
 }
-export function actualInterval(w:WorldState){const departures=w.finance.departures.A??[];return {minimum:Math.max(w.finance.interval,2*(CONFIG.journey.abMinutes+CONFIG.journey.dwellMinutes)),observed:departures.length>1?departures.at(-1)!.minute-departures.at(-2)!.minute:null};}
+export function actualInterval(w:WorldState){const departures=w.finance.departures.A??[];return {minimum:Math.max(w.finance.interval,(allTrains(w.fleet).filter(v=>v.route&&!v.stopRequested).length>1?2*CONFIG.journey.abMinutes+CONFIG.journey.dwellMinutes:2*(CONFIG.journey.abMinutes+CONFIG.journey.dwellMinutes))),observed:departures.length>1?departures.at(-1)!.minute-departures.at(-2)!.minute:null};}

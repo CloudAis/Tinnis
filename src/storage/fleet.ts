@@ -1,5 +1,7 @@
+import { resourcesFor } from '../simulation/dispatch';
+import { STATIONS } from '../world/map';
 import { CONFIG } from '../config';
-import { newFleet, type FleetState, type VehicleReceipt, STATUS_NAMES } from '../world/fleet';
+import { allTrains, newFleet, type FleetState, type VehicleReceipt, STATUS_NAMES } from '../world/fleet';
 import type { WorldState, LedgerEntry } from '../world/state';
 import { routeSnapshot, travelFraction } from '../simulation/train';
 const record=(v:unknown):v is Record<string,any>=>!!v&&typeof v==='object'&&!Array.isArray(v);
@@ -13,30 +15,32 @@ export function copyVehicleReceipt(raw:unknown):VehicleReceipt|undefined {
   if(raw.kind==='sell')return {kind:'sell',vehicleId:raw.vehicleId,purchaseId:raw.purchaseId};
   return bad();
 }
-export function validateFleet(raw:unknown,w:WorldState,ledger:LedgerEntry[]):FleetState {
+export function validateFleet(raw:any,w:WorldState,ledger:LedgerEntry[]):FleetState {
   if(!record(raw)||!int(raw.revision)||!int(raw.nextSerial)||typeof raw.follow!=='boolean')return bad();
-  let serial=1,mutations=0;let active:{id:string;type:'light'|'large';paid:number;purchaseId:string}|null=null;
+  let serial=1,mutations=0;const active=new Map<string,{id:string;type:'light'|'large';paid:number;purchaseId:string}>();
   for(const e of ledger){
     const r=e.vehicle;
     if(!r){if(e.id.startsWith('fleet:'))return bad();continue;}
     if(r.kind==='buy'){
       const id=`train-${String(serial).padStart(4,'0')}`;
-      if(active||r.vehicleId!==id||e.id!==`fleet:buy:${serial}`||!['light','large'].includes(r.type)||!int(r.paid)||!r.paid||e.amount!==-r.paid)return bad();
-      active={id,type:r.type,paid:r.paid,purchaseId:e.id};serial++;
+      if(active.size>=2||r.vehicleId!==id||e.id!==`fleet:buy:${serial}`||!['light','large'].includes(r.type)||!int(r.paid)||!r.paid||e.amount!==-r.paid)return bad();
+      active.set(id,{id,type:r.type,paid:r.paid,purchaseId:e.id});serial++;
     }else{
-      if(!active||r.vehicleId!==active.id||r.purchaseId!==active.purchaseId||e.id!==`fleet:sell:${active.id}`||e.amount!==Math.floor(active.paid*CONFIG.vehicleRefund))return bad();
-      active=null;
+      const bought=active.get(r.vehicleId);if(!bought||r.purchaseId!==bought.purchaseId||e.id!==`fleet:sell:${bought.id}`||e.amount!==Math.floor(bought.paid*CONFIG.vehicleRefund))return bad();
+      active.delete(r.vehicleId);
     }
     mutations++;
   }
   if(raw.nextSerial!==serial||raw.revision<mutations)return bad();
   const result=newFleet();result.revision=raw.revision;result.nextSerial=serial;result.follow=raw.follow;
-  if(!active){if(raw.vehicle!==null||raw.follow)return bad();return result;}
-  const v=raw.vehicle;
-  if(!record(v)||v.id!==active.id||v.type!==active.type||v.purchaseId!==active.purchaseId||v.paid!==active.paid||!Object.hasOwn(STATUS_NAMES,v.status)||![1,-1].includes(v.direction)||!finite(v.distance)||v.distance<0||!finite(v.legElapsed)||v.legElapsed<0||v.legElapsed>90.000001||!finite(v.dwellRemaining)||v.dwellRemaining<0||v.dwellRemaining>10.000001||typeof v.stopRequested!=='boolean'||!int(v.tripSerial)||!int(v.legsCompleted)||!int(v.arrivalSerial)||v.arrivalSerial!==v.legsCompleted)return bad();
+  if(!Array.isArray(raw.others)||raw.others.length>1)return bad();
+  const input=[...(raw.vehicle?[raw.vehicle]:[]),...raw.others];if(input.length!==active.size||new Set(input.map(v=>v.id)).size!==input.length||!raw.vehicle&&(input.length||raw.follow))return bad();
+  function parse(v:any){
+  const bought=active.get(v?.id);if(!bought)return bad();
+  if(!record(v)||v.id!==bought.id||v.type!==bought.type||v.purchaseId!==bought.purchaseId||v.paid!==bought.paid||!Object.hasOwn(STATUS_NAMES,v.status)||![1,-1].includes(v.direction)||!finite(v.distance)||v.distance<0||!finite(v.legElapsed)||v.legElapsed<0||v.legElapsed>90.000001||!finite(v.dwellRemaining)||v.dwellRemaining<0||v.dwellRemaining>10.000001||typeof v.stopRequested!=='boolean'||!int(v.tripSerial)||!int(v.legsCompleted)||!int(v.arrivalSerial)||v.arrivalSerial!==v.legsCompleted)return bad();
   let route=null;
   if(v.status==='depot'){
-    if(v.route!==null||v.currentStation!==null||v.pendingStops!==null||v.distance!==0||v.legElapsed!==0||v.dwellRemaining!==0||raw.follow)return bad();
+    if(v.route!==null||v.currentStation!==null||v.pendingStops!==null||v.distance!==0||v.legElapsed!==0||v.dwellRemaining!==0||raw.follow&&raw.vehicle?.id===v.id)return bad();
   }else{
     if(!record(v.route)||!Array.isArray(v.route.stops)||v.route.stops.length!==2||new Set(v.route.stops).size!==2)return bad();
     const candidate=routeSnapshot({...w,railway:{...w.railway,line:{...w.railway.line,stops:v.route.stops}}});
@@ -55,6 +59,16 @@ export function validateFleet(raw:unknown,w:WorldState,ledger:LedgerEntry[]):Fle
     }else if(JSON.stringify(route.stops)!==JSON.stringify(w.railway.line.stops))return bad();
   }
   if(!finite(v.totalDistance)||v.totalDistance<0)return bad();
-  result.vehicle={...active,totalDistance:v.totalDistance,status:v.status,route,pendingStops:v.pendingStops===null?null:[...v.pendingStops],direction:v.direction,distance:v.distance,legElapsed:v.legElapsed,dwellRemaining:v.dwellRemaining,currentStation:v.currentStation,stopRequested:v.stopRequested,tripSerial:v.tripSerial,legsCompleted:v.legsCompleted,arrivalSerial:v.arrivalSerial};
+  if(v.waitSince!==null&&(!finite(v.waitSince)||v.waitSince>w.clock.minutes+1e-6)||typeof v.waitReason!=='string')return bad();
+  const validBerth=(station:any,berth:any)=>Number.isInteger(berth)&&berth>=1&&berth<=(STATIONS.find(s=>s.id===station)?.berths??0);
+  let authority=null;
+  if(v.currentStation){if(!validBerth(v.currentStation,v.berth)||v.authority!==null)return bad();}
+  else if(v.status==='running'||v.status==='braking'){const a=v.authority;if(!record(a)||!route||a.section!==[...route.stops].sort().join('')||!route.stops.includes(a.from)||!route.stops.includes(a.to)||a.from===a.to||a.to!==(v.direction===1?route.stops.at(-1):route.stops[0])||!validBerth(a.from,a.fromBerth)||!validBerth(a.to,a.berth)||v.berth!==null)return bad();authority={section:a.section,from:a.from,to:a.to,fromBerth:a.fromBerth,berth:a.berth};}
+  else if(v.berth!==null||v.authority!==null)return bad();
+  return {...bought,berth:v.berth,authority,waitSince:v.waitSince,waitReason:v.waitReason,totalDistance:v.totalDistance,status:v.status,route,pendingStops:v.pendingStops===null?null:[...v.pendingStops],direction:v.direction,distance:v.distance,legElapsed:v.legElapsed,dwellRemaining:v.dwellRemaining,currentStation:v.currentStation,stopRequested:v.stopRequested,tripSerial:v.tripSerial,legsCompleted:v.legsCompleted,arrivalSerial:v.arrivalSerial};
+  }
+  if(raw.vehicle)result.vehicle=parse(raw.vehicle);result.others=raw.others.map(parse);
+  try{result.resources=resourcesFor(allTrains(result));}catch{return bad();}
+  if(JSON.stringify(result.resources)!==JSON.stringify(raw.resources))return bad();
   return result;
 }

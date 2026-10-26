@@ -1,3 +1,4 @@
+import { allTrains } from '../world/fleet';
 import { PlatformCrowd } from './passengers';
 import { createTrainModel } from './train';
 import type { Pose } from '../simulation/train';
@@ -23,7 +24,7 @@ export class WorldView {
   private plots=new Map<StationId,THREE.Group>();
   private railwayModels=new THREE.Group();
   private preview=new THREE.Group();
-  private trainModel:THREE.Group|null=null;
+  private trainModels=new Map<string,THREE.Group>();
   private trainKey='';
   private crowd=new PlatformCrowd();
   private following=false;
@@ -196,20 +197,17 @@ export class WorldView {
       }
     }
   }
-  updateTrain(world:WorldState,pose:Pose|null){
+  updateTrain(world:WorldState,poses:Pose[]){
     if(this.crowd.update(world))this.dirty=true;
-    const v=world.fleet.vehicle,key=v?`${v.id}:${v.type}`:'';
-    if(key!==this.trainKey){
-      if(this.trainModel){disposeGeometry(this.trainModel);this.scene.remove(this.trainModel);}
-      this.trainModel=v?createTrainModel(v.type):null;if(this.trainModel)this.scene.add(this.trainModel);this.trainKey=key;this.dirty=true;
+    const vehicles=allTrains(world.fleet),ids=new Set(vehicles.map(v=>v.id));
+    for(const [id,model] of this.trainModels)if(!ids.has(id)){disposeGeometry(model);this.scene.remove(model);this.trainModels.delete(id);this.dirty=true;}
+    for(const v of vehicles){
+      let model=this.trainModels.get(v.id);if(!model){model=createTrainModel(v.type);this.trainModels.set(v.id,model);this.scene.add(model);this.dirty=true;}
+      const p=poses.find(p=>p.id===v.id),visible=!!p;
+      if(model.visible!==visible){model.visible=visible;this.dirty=true;}
+      if(p){if(model.position.distanceToSquared(new THREE.Vector3(...p.position))>1e-9||Math.abs(model.rotation.y-p.heading)>1e-6)this.dirty=true;model.position.fromArray(p.position);model.rotation.y=p.heading;}
     }
-    if(this.trainModel){
-      const visible=!!pose;if(this.trainModel.visible!==visible){this.trainModel.visible=visible;this.dirty=true;}
-      if(pose){
-        if(this.trainModel.position.distanceToSquared(new THREE.Vector3(...pose.position))>1e-9||Math.abs(this.trainModel.rotation.y-pose.heading)>1e-6)this.dirty=true;
-        this.trainModel.position.fromArray(pose.position);this.trainModel.rotation.y=pose.heading;
-      }
-    }
+    const pose=poses.find(p=>p.id===world.fleet.vehicle?.id);
     if(world.fleet.follow&&pose){
       const target=new THREE.Vector3(pose.position[0],0,pose.position[2]);
       if(!this.following){const nearSavedTarget=target.distanceTo(this.controls.target)<2;const offset=nearSavedTarget?this.camera.position.clone().sub(this.controls.target):new THREE.Vector3().setFromSpherical(new THREE.Spherical(70,.62,this.controls.getAzimuthalAngle()));this.setCamera({position:target.clone().add(offset).toArray(),target:target.toArray()});}
@@ -230,5 +228,5 @@ export class WorldView {
     this.renderer.render(this.scene,this.camera);
     this.renderedFrames++;this.paintMs.push(performance.now()-started);if(this.paintMs.length>120)this.paintMs.shift();
   }
-  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,trainModels:this.trainModel?1:0,trainVisible:this.trainModel?.visible??false,visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
+  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,trainModels:this.trainModels.size,trainVisible:[...this.trainModels.values()].some(m=>m.visible),visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
 }

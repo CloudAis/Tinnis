@@ -1,3 +1,4 @@
+import { resourcesFor } from '../simulation/dispatch';
 import { newFinance } from '../world/finance';
 import { copyPosting, validateFinance } from './finance';
 import { newPassengers } from '../world/passengers';
@@ -9,9 +10,9 @@ import { newRailway } from '../world/railway';
 import { CONFIG } from '../config';
 import { MAP, TOWNS } from '../world/map';
 import { isStationId, type WorldState } from '../world/state';
-export const SAVE_KEY = 'alongline-town.save.v5';
+export const SAVE_KEY = 'alongline-town.save.v6';
 export const LEGACY_SAVE_KEY = 'alongline-town.save.v1';
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 export interface SaveFile { schemaVersion: number; savedAt: string; world: WorldState }
 const fail = () => { throw new Error('存档内容不完整或数据越界，当前世界未更改。'); };
 const record = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -24,7 +25,7 @@ export function decodeSave(raw: string): SaveFile {
   let data: any;
   try { data = JSON.parse(raw); } catch { throw new Error('无法读取存档：不是有效的 JSON。'); }
   if (!record(data)) return fail();
-  if (![1, 2, 3, 4, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
+  if (![1, 2, 3, 4, 5, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
   const w = data.world;
   if (!record(w) || !record(w.map) || !record(w.clock) || !record(w.economy) || !record(w.towns) || !record(w.camera)) return fail();
   if (w.map.id !== MAP.id || w.map.version !== MAP.version || w.map.seed !== MAP.seed) throw new Error('存档地图不兼容。');
@@ -66,6 +67,7 @@ export function decodeSave(raw: string): SaveFile {
     selected: w.selected, camera: { position: [...w.camera.position], target: [...w.camera.target] },
   };
   if(data.schemaVersion<5){if(w.fleet?.vehicle)w.fleet.vehicle.totalDistance=0;if(w.passengers)w.passengers.released=[];}
+  if(data.schemaVersion<6&&w.fleet){w.fleet.others=[];const v=w.fleet.vehicle;if(v){v.waitSince=null;v.waitReason='';v.berth=v.currentStation?1:null;v.authority=v.status==='running'||v.status==='braking'?{section:[...v.route.stops].sort().join(''),from:v.direction===1?v.route.stops[0]:v.route.stops.at(-1),to:v.direction===1?v.route.stops.at(-1):v.route.stops[0],fromBerth:1,berth:1}:null;}w.fleet.resources=resourcesFor(v?[v]:[]);}
   world.fleet=validateFleet(data.schemaVersion<3?newFleet():w.fleet,world,ledger);
   world.passengers=validatePassengers(data.schemaVersion<4?newPassengers(w.clock.minutes):w.passengers,world);
   if(data.schemaVersion>=5)world.finance=validateFinance(w.finance,world);
@@ -75,7 +77,7 @@ export function encodeSave(world: WorldState): string {
   return JSON.stringify({ schemaVersion: SCHEMA_VERSION, savedAt: new Date().toISOString(), world }, null, 2);
 }
 export function readLocal(): SaveFile | null {
-  const raw = localStorage.getItem(SAVE_KEY) ?? localStorage.getItem('alongline-town.save.v4') ?? localStorage.getItem('alongline-town.save.v3') ?? localStorage.getItem('alongline-town.save.v2') ?? localStorage.getItem(LEGACY_SAVE_KEY);
+  const raw = localStorage.getItem(SAVE_KEY) ?? localStorage.getItem('alongline-town.save.v5') ?? localStorage.getItem('alongline-town.save.v4') ?? localStorage.getItem('alongline-town.save.v3') ?? localStorage.getItem('alongline-town.save.v2') ?? localStorage.getItem(LEGACY_SAVE_KEY);
   return raw ? decodeSave(raw) : null;
 }
 export function writeLocal(world: WorldState) { localStorage.setItem(SAVE_KEY, JSON.stringify({schemaVersion:SCHEMA_VERSION,savedAt:new Date().toISOString(),world})); }
