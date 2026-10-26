@@ -2,7 +2,7 @@
 
 ## GitHub 交付
 
-2026-10-26（Asia/Singapore）：用户明确要求上传至其GitHub Tinnis仓库。确认CloudAis身份对CloudAis/Tinnis具有管理权限，远端main为初始提交，已将十阶段历史快进上传。发行附件上传端点返回401，CLI未留下发布页；改用已可写的Git通道保存两个小型已验证ZIP及SHA256清单到 `releases/v0.1.0/`，准备以发布说明链接下载。游戏核心及已验收发行字节未改变，归档SHA256与本地交付一致。
+2026-10-26（Asia/Singapore）：用户明确要求上传至其GitHub Tinnis仓库。确认CloudAis身份对CloudAis/Tinnis具有管理权限，远端main为初始提交，已将十阶段历史快进上传。发行附件上传端点返回401，CLI未留下发布页；改用已可写的Git通道保存两个小型已验证ZIP及SHA256清单到 `releases/v0.1.0/`，已发布 `https://github.com/CloudAis/Tinnis/releases/tag/v0.1.0`，说明链接到固定分发提交中的文件；远端4个文件的大小和Git blob校验均与本地一致。游戏核心及已验收发行字节未改变，归档SHA256与本地交付一致。
 
 ## 阶段 10 · 平衡性能与首版交付：已完成
 
