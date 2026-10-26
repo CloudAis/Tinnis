@@ -4,7 +4,7 @@ import { createWorld, type WorldState } from '../src/world/state';
 import { EDGES, edgePrice, nearestNode, newRailway } from '../src/world/railway';
 import { executeCommand, previewTrack, deploymentReadiness, type Command } from '../src/simulation/construction';
 import { transact } from '../src/simulation/economy';
-import { decodeSave, encodeSave } from '../src/storage/save';
+import { SCHEMA_VERSION, decodeSave, encodeSave } from '../src/storage/save';
 import { CONFIG } from '../src/config';
 const run=(w:WorldState,c:Omit<Command,'revision'>|any)=>executeCommand(w,{...c,revision:w.railway.revision} as Command);
 function built(){const w=createWorld();run(w,{type:'build-station',station:'A'});run(w,{type:'build-station',station:'B'});run(w,{type:'build-track',from:'node-a',to:'node-b'});return w;}
@@ -47,7 +47,7 @@ test('v2 roundtrip preserves names, topology, directions, purchase receipts and 
 });
 test('v1 migrates without guessing past construction; v2 forged assets/refunds/costs/locked objects are rejected',()=>{
   const old=createWorld();old.selected='B';old.clock.paused=true;const doc=JSON.parse(encodeSave(old));doc.schemaVersion=1;delete doc.world.railway;
-  const migrated=decodeSave(JSON.stringify(doc));assert.equal(migrated.schemaVersion,2);assert.deepEqual(migrated.world.railway,newRailway());assert.equal(migrated.world.economy.balance,100000);assert.equal(migrated.world.selected,'B');
+  const migrated=decodeSave(JSON.stringify(doc));assert.equal(migrated.schemaVersion,SCHEMA_VERSION);assert.deepEqual(migrated.world.railway,newRailway());assert.equal(migrated.world.economy.balance,100000);assert.equal(migrated.world.selected,'B');
   const base=built();const corrupt=[(d:any)=>d.world.railway.stations.A.paid=16000,(d:any)=>d.world.railway.nextSerial=1,(d:any)=>delete d.world.railway.tracks['ab-coast'],(d:any)=>d.world.railway.line.stops=['A','D'],(d:any)=>d.world.railway.stations.A.name='<img>',(d:any)=>d.world.economy.ledger[2].construction.items[0].paid=1];
   for(const change of corrupt){const d=JSON.parse(encodeSave(base));change(d);assert.throws(()=>decodeSave(JSON.stringify(d)));}
 });

@@ -1,3 +1,4 @@
+import {SCHEMA,SAVE_KEY} from './browser-version.mjs';
 import * as THREE from 'three';
 import { chromium } from 'playwright-core';
 import assert from 'node:assert/strict';
@@ -89,13 +90,13 @@ try{
   });
   let exported;
   await check('v2 export/import retains assets, route, historical purchase allocations and funds',async()=>{
-    await page.locator('#save-menu').click();const download=page.waitForEvent('download');await page.locator('#export-save').click();await (await download).saveAs('artifacts/stage-2-save.json');exported=JSON.parse(await readFile('artifacts/stage-2-save.json','utf8'));assert.equal(exported.schemaVersion,2);
+    await page.locator('#save-menu').click();const download=page.waitForEvent('download');await page.locator('#export-save').click();await (await download).saveAs('artifacts/stage-2-save.json');exported=JSON.parse(await readFile('artifacts/stage-2-save.json','utf8'));assert.equal(exported.schemaVersion,SCHEMA);
     await page.locator('#save-dialog .dialog-close').click();const before=await snap();await importDoc(exported);assert.deepEqual((await snap()).world,before.world);
   });
   const legacy=JSON.parse(await readFile('tests/fixtures/stage1-v1.json','utf8'));
   await check('real v1 schema import migrates camera/time/funds and initializes an empty railway',async()=>{
     await importDoc(legacy);const s=await snap();assert.equal(s.world.clock.minutes,482);assert.equal(s.world.clock.paused,true);assert.equal(s.world.economy.balance,100000);assert.equal(Object.keys(s.world.railway.tracks).length,0);assert.equal(s.line.ok,false);assert.equal(s.world.selected,'B');assert.deepEqual(s.world.camera.target,[0,0,-3]);
-    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('alongline-town.save.v2')).schemaVersion),2);
+    assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).schemaVersion,SAVE_KEY),SCHEMA);
     await importDoc(exported);
   });
   await check('insufficient money and locked station leave financial and asset state unchanged',async()=>{
@@ -122,7 +123,7 @@ try{
   });
   await check('legacy localStorage fallback reads v1 and preserves the original backup key',async()=>{
     const c=await browser.newContext({viewport:{width:1000,height:800}});await c.addInitScript(save=>localStorage.setItem('alongline-town.save.v1',JSON.stringify(save)),legacy);const p=await c.newPage();await p.goto(`${base}?diagnostics=1`);await p.waitForFunction(()=>window.__ALONGLINE__?.snapshot().render?.triangles>1000);assert.equal(await p.evaluate(()=>window.__ALONGLINE__.snapshot().world.clock.minutes),482);
-    await p.locator('#save-menu').click();await p.locator('#save-now').click();assert.equal(await p.evaluate(()=>!!localStorage.getItem('alongline-town.save.v1')&&JSON.parse(localStorage.getItem('alongline-town.save.v2')).schemaVersion===2),true);await c.close();
+    await p.locator('#save-menu').click();await p.locator('#save-now').click();assert.equal(await p.evaluate(({key,version})=>!!localStorage.getItem('alongline-town.save.v1')&&JSON.parse(localStorage.getItem(key)).schemaVersion===version,{key:SAVE_KEY,version:SCHEMA}),true);await c.close();
   });
   await check('no browser JavaScript errors during construction',async()=>assert.deepEqual(errors,[]));
   await writeFile('artifacts/construction-report.json',JSON.stringify({at:new Date().toISOString(),browser:await browser.version(),checks:results,desktop,errors},null,2));console.log(JSON.stringify({checks:results.length,balance:desktop.world.economy.balance,line:desktop.line,render:desktop.render},null,2));

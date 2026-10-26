@@ -1,3 +1,4 @@
+import { describeTrainCommand, executeTrainCommand, type TrainCommand } from './simulation/train';
 import './ui/style.css';
 import { UI } from './ui/app';
 import { WorldView } from './render/view';
@@ -14,6 +15,7 @@ try { const saved=readLocal();if(saved){world=saved.world;initialNotice='已回�
 let view:WorldView|undefined;
 let editor:EditorState=newEditor();
 let pending:Command|null=null;
+let pendingTrain:TrainCommand|null=null;
 let saveBlocked=!!initialNotice&&initialNotice.includes('初始世界');
 const simulation=new Simulation(world);
 function refresh(){view?.syncRailway(world,editor);ui.update(world,editor);}
@@ -32,8 +34,14 @@ function request(c:Command){
   const d=describeCommand(world,c);
   if(!d.ok){ui.toast(d.message,true);return;}
   if(c.type==='rename-station'||c.type==='set-stops'){commit(c);return;}
-  pending=c;ui.confirmation(d.message,d.amount,c.type.startsWith('remove'));
+  pendingTrain=null;pending=c;ui.confirmation(d.message,d.amount,c.type.startsWith('remove'));
 }
+function requestTrain(c:TrainCommand){
+  const d=describeTrainCommand(world,c);if(!d.ok){ui.toast(d.message,true);return;}
+  if(c.type==='buy'||c.type==='sell'){pendingTrain=c;pending=null;ui.confirmation(d.message,d.amount,c.type==='sell',c.type==='buy'?'确认购车':'确认出售');}
+  else commitTrain(c);
+}
+function commitTrain(c:TrainCommand){const d=executeTrainCommand(world,c);simulation.resetElapsed();refresh();ui.toast(d.message,!d.ok);if(d.ok)store();}
 function syncCamera(){if(view)world.camera=view.getCamera();}
 function store(manual=false){
   if(saveBlocked&&!manual)return;
@@ -42,7 +50,7 @@ function store(manual=false){
 }
 function restore(raw:string){
   const saved=decodeSave(raw); // Atomic validation before replacing any live state.
-  world=saved.world;simulation.state=world;simulation.resetElapsed();editor=newEditor();pending=null;ui.closeConfirmation();
+  world=saved.world;simulation.state=world;simulation.resetElapsed();editor=newEditor();pending=null;pendingTrain=null;ui.closeConfirmation();
   view?.setCamera(world.camera);view?.setSelection(world.selected);refresh();saveBlocked=false;
 }
 const ui=new UI(document.getElementById('app')!,{
@@ -52,8 +60,9 @@ const ui=new UI(document.getElementById('app')!,{
   mode(mode){editor.mode=mode;refresh();},
   endpoint(slot,id){editor[slot]=id;if(slot==='from'&&!id)editor.to=null;refresh();},
   command:request,
-  confirm(){const c=pending;pending=null;ui.closeConfirmation();if(c)commit(c);},
-  focus(id){view?.focus(id);},home(){view?.resetCamera();select(null);},zoom(f){view?.zoom(f);},
+  trainCommand:requestTrain,
+  confirm(){const c=pending,t=pendingTrain;pending=null;pendingTrain=null;ui.closeConfirmation();if(c)commit(c);if(t)commitTrain(t);},
+  focus(id){world.fleet.follow=false;view?.focus(id);},home(){world.fleet.follow=false;view?.resetCamera();select(null);},zoom(f){view?.zoom(f);},
   save(){store(true);},
   load(){try{const saved=readLocal();if(!saved){ui.toast('还没有本地存档，可以先保存当前进度。');return;}restore(JSON.stringify(saved));ui.toast('已读取存档，地图与视角已恢复。');}catch(e){ui.toast((e as Error).message,true);}},
   export(){
@@ -65,7 +74,7 @@ const ui=new UI(document.getElementById('app')!,{
     catch(e){ui.toast((e as Error).message,true);}
   },
 });
-document.getElementById('construction-dialog')!.addEventListener('close',()=>{if(!(document.getElementById('construction-dialog') as HTMLDialogElement).open)pending=null;});
+document.getElementById('construction-dialog')!.addEventListener('close',()=>{if(!(document.getElementById('construction-dialog') as HTMLDialogElement).open){pending=null;pendingTrain=null;}});
 refresh();
 try{
   view=new WorldView(document.getElementById('viewport')!,select,()=>{},nodeSelect);
@@ -84,7 +93,7 @@ const frames:number[]=[];
 function frame(now:number){
   const delta=(now-previous)/1000;previous=now;
   if(!document.hidden&&view){
-    simulation.advance(delta);view.render();
+    simulation.advance(delta);view.updateTrain(world,simulation.visualPose());view.render();
     frames.push(delta*1000);if(frames.length>180)frames.shift();
     if(now-lastUI>160){refresh();lastUI=now;}
   }
@@ -98,7 +107,7 @@ document.addEventListener('keydown',e=>{
   if(e.target instanceof HTMLElement&&(e.target.matches('input,textarea,select,button,a')||e.target.isContentEditable))return;
   if(document.querySelector('dialog[open]'))return;
   if(e.code==='Space'){e.preventDefault();world.clock.paused=!world.clock.paused;simulation.resetElapsed();refresh();}
-  if(e.code==='Home'){e.preventDefault();view?.resetCamera();select(null);}
+  if(e.code==='Home'){e.preventDefault();world.fleet.follow=false;view?.resetCamera();select(null);}
   if(e.code==='Escape')select(null);
 });
 if(import.meta.env.PROD&&'serviceWorker'in navigator){

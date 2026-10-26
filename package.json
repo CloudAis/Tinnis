@@ -9,7 +9,8 @@
     "build": "npm run check && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "tsx --test tests/*.test.ts",
-    "test:e2e": "node tests/browser.mjs && node tests/construction-browser.mjs"
+    "test:e2e": "node tests/browser.mjs && node tests/construction-browser.mjs",
+    "test:train": "node tests/train-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

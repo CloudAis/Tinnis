@@ -16,16 +16,16 @@ const money=(n:number)=>n.toLocaleString('en-US');
 export class ConstructionUI {
   private key='';
   constructor(private actions:ConstructionActions){
-    document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>b.addEventListener('click',()=>{document.querySelector('.sidebar')!.classList.remove('collapsed');const toggle=document.getElementById('collapse-tools')!;toggle.textContent='⌄';toggle.setAttribute('aria-expanded','true');toggle.setAttribute('aria-label','收起建设面板');actions.mode(b.dataset.mode as EditorState['mode']);}));
+    document.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach(b=>b.addEventListener('click',()=>{document.querySelector('.sidebar')!.classList.remove('collapsed');const toggle=document.getElementById('collapse-tools')!;toggle.textContent='⌄';toggle.setAttribute('aria-expanded','true');toggle.setAttribute('aria-label','收起建设面板');actions.mode(b.dataset.mode as EditorState['mode']);}));
   }
   update(world:WorldState,editor:EditorState){
     const key=JSON.stringify([world.selected,world.railway,world.economy.balance,editor]);
     if(key===this.key)return;this.key=key;
     const r=world.railway,ready=deploymentReadiness(world);
-    document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===editor.mode)));
+    document.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===editor.mode)));
     (document.querySelector('.town-list') as HTMLElement).hidden=editor.mode!=='inspect';
     document.querySelector('.sidebar')!.setAttribute('data-tool',editor.mode);
-    document.querySelector('.survey-tag')!.innerHTML=`<span></span> ${editor.mode==='track'?'走廊铺轨':editor.mode==='line'?'线路规划':'站点建设'}`;
+    document.querySelector('.survey-tag')!.innerHTML=`<span></span> ${editor.mode==='track'?'走廊铺轨':editor.mode==='line'?'线路规划':editor.mode==='train'?'地方列车':'站点建设'}`;
     document.querySelector('.route-title strong')!.textContent=r.line.name;
     document.querySelector('.route-state')!.textContent=ready.ok?'线路已连通':'线路未就绪';
     document.querySelector('.route-map')!.setAttribute('aria-label',`主线 A—B；停站顺序 ${r.line.stops.map(id=>stationName(r,id)).join('—')}；预留 B—D 未开放；${ready.reason}`);
@@ -35,7 +35,7 @@ export class ConstructionUI {
     const panel=document.getElementById('selection-panel')!;
     if(editor.mode==='track')this.trackPanel(panel,world,editor);
     else if(editor.mode==='line')this.linePanel(panel,world);
-    else this.stationPanel(panel,world);
+    else if(editor.mode==='inspect')this.stationPanel(panel,world);
   }
   private bind(id:string,fn:()=>void){document.getElementById(id)?.addEventListener('click',fn);}
   private stationPanel(panel:HTMLElement,world:WorldState){
@@ -63,7 +63,7 @@ export class ConstructionUI {
   }
   private linePanel(panel:HTMLElement,world:WorldState){
     const r=world.railway,ready=deploymentReadiness(world);
-    panel.innerHTML=`<div class="section-heading"><span>${escape(r.line.name)}</span><small>LINE 01</small></div><div id="line-readiness" class="line-readiness ${ready.ok?'valid':'invalid'}"><strong>${ready.ok?'两镇之间，已然相连':'线路尚未就绪'}</strong><p>${escape(ready.reason)}</p></div><label class="editor-label">停站顺序（保存后生效）</label><small id="stop-draft-note">当前：${r.line.stops.map(id=>escape(stationName(r,id))).join(' → ')}</small><div class="stop-order">${r.line.stops.map((id,i)=>`<label><span>${i+1}</span><select data-stop-index="${i}" aria-label="第${i+1}停靠站">${STATIONS.map(s=>`<option value="${s.id}" ${s.id===id?'selected':''} ${s.unlocked?'':'disabled'}>${s.id} · ${escape(stationName(r,s.id))}${s.unlocked?'':'（锁定）'}</option>`).join('')}</select></label>`).join('')}</div><div class="order-actions"><button id="save-stops" class="primary">保存顺序</button><button id="reverse-stops">反向停靠 ⇄</button></div><div class="line-metrics"><span>已建车站<b>${Object.keys(r.stations).length}</b></span><span>有效路径<b>${ready.ok?ready.length.toFixed(1)+' m':'—'}</b></span></div><p class="route-node-list">${ready.ok?ready.nodes.map(id=>NODES.find(n=>n.id===id)!.name).join(' → '):'车站和沿途每段轨道都齐备后，才有可用运行路径。'}</p><button id="can-dispatch" class="dispatch-status" disabled data-ready="${ready.ok}">${ready.ok?'线路就绪 · 第 3 阶段投车':'线路无效 · 不可投车'}</button><p class="reserved-note">拆除站或轨道后立即重算路径。运营占用保护接口已预留，本阶段还没有列车。</p>`;
+    panel.innerHTML=`<div class="section-heading"><span>${escape(r.line.name)}</span><small>LINE 01</small></div><div id="line-readiness" class="line-readiness ${ready.ok?'valid':'invalid'}"><strong>${ready.ok?'两镇之间，已然相连':'线路尚未就绪'}</strong><p>${escape(ready.reason)}</p></div><label class="editor-label">停站顺序（保存后生效）</label><small id="stop-draft-note">当前：${r.line.stops.map(id=>escape(stationName(r,id))).join(' → ')}</small><div class="stop-order">${r.line.stops.map((id,i)=>`<label><span>${i+1}</span><select data-stop-index="${i}" aria-label="第${i+1}停靠站">${STATIONS.map(s=>`<option value="${s.id}" ${s.id===id?'selected':''} ${s.unlocked?'':'disabled'}>${s.id} · ${escape(stationName(r,s.id))}${s.unlocked?'':'（锁定）'}</option>`).join('')}</select></label>`).join('')}</div><div class="order-actions"><button id="save-stops" class="primary">保存顺序</button><button id="reverse-stops">反向停靠 ⇄</button></div><div class="line-metrics"><span>已建车站<b>${Object.keys(r.stations).length}</b></span><span>有效路径<b>${ready.ok?ready.length.toFixed(1)+' m':'—'}</b></span></div><p class="route-node-list">${ready.ok?ready.nodes.map(id=>NODES.find(n=>n.id===id)!.name).join(' → '):'车站和沿途每段轨道都齐备后，才有可用运行路径。'}</p><button id="can-dispatch" class="dispatch-status" disabled data-ready="${ready.ok}">${ready.ok?'线路就绪 · 前往列车页投放':'线路无效 · 不可投车'}</button><p class="reserved-note">拆除站或轨道后立即重算路径。已投放车辆依赖的线路受到保护，停运并回库后才可拆除。</p>`;
     panel.querySelectorAll('[data-stop-index]').forEach(s=>s.addEventListener('change',()=>{document.getElementById('stop-draft-note')!.textContent='有未保存的顺序；保存后才更新运行路径。';}));
     this.bind('save-stops',()=>this.actions.command({type:'set-stops',stops:[...panel.querySelectorAll<HTMLSelectElement>('[data-stop-index]')].map(s=>s.value as StationId),revision:r.revision}));
     this.bind('reverse-stops',()=>this.actions.command({type:'set-stops',stops:[...r.line.stops].reverse(),revision:r.revision}));

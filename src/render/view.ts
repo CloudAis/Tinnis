@@ -1,3 +1,5 @@
+import { createTrainModel } from './train';
+import type { Pose } from '../simulation/train';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from '../config';
@@ -20,6 +22,9 @@ export class WorldView {
   private plots=new Map<StationId,THREE.Group>();
   private railwayModels=new THREE.Group();
   private preview=new THREE.Group();
+  private trainModel:THREE.Group|null=null;
+  private trainKey='';
+  private following=false;
   private networkKey='';
   private previewKey='';
   private editor:EditorState={mode:'inspect',from:null,to:null};
@@ -167,7 +172,7 @@ export class WorldView {
       });
       this.renderer.shadowMap.needsUpdate=true;this.dirty=true;
     }
-    this.editor={...editor};this.labels.dataset.mode=editor.mode;
+    this.editor={...editor};this.labels.dataset.tool=editor.mode;
     const pkey=JSON.stringify([key,world.economy.balance,editor]);
     if(pkey!==this.previewKey){
       this.previewKey=pkey;this.preview.traverse(o=>{if((o instanceof THREE.Line||o instanceof THREE.Mesh)&&!Array.isArray(o.material))o.material.dispose();});disposeGeometry(this.preview);this.preview.clear();this.dirty=true;
@@ -189,6 +194,26 @@ export class WorldView {
       }
     }
   }
+  updateTrain(world:WorldState,pose:Pose|null){
+    const v=world.fleet.vehicle,key=v?`${v.id}:${v.type}`:'';
+    if(key!==this.trainKey){
+      if(this.trainModel){disposeGeometry(this.trainModel);this.scene.remove(this.trainModel);}
+      this.trainModel=v?createTrainModel(v.type):null;if(this.trainModel)this.scene.add(this.trainModel);this.trainKey=key;this.dirty=true;
+    }
+    if(this.trainModel){
+      const visible=!!pose;if(this.trainModel.visible!==visible){this.trainModel.visible=visible;this.dirty=true;}
+      if(pose){
+        if(this.trainModel.position.distanceToSquared(new THREE.Vector3(...pose.position))>1e-9||Math.abs(this.trainModel.rotation.y-pose.heading)>1e-6)this.dirty=true;
+        this.trainModel.position.fromArray(pose.position);this.trainModel.rotation.y=pose.heading;
+      }
+    }
+    if(world.fleet.follow&&pose){
+      const target=new THREE.Vector3(pose.position[0],0,pose.position[2]);
+      if(!this.following){const nearSavedTarget=target.distanceTo(this.controls.target)<2;const offset=nearSavedTarget?this.camera.position.clone().sub(this.controls.target):new THREE.Vector3().setFromSpherical(new THREE.Spherical(70,.62,this.controls.getAzimuthalAngle()));this.setCamera({position:target.clone().add(offset).toArray(),target:target.toArray()});}
+      else{const delta=target.clone().sub(this.controls.target);this.camera.position.add(delta);this.controls.target.copy(target);if(delta.lengthSq()>1e-9)this.dirty=true;}
+    }
+    this.following=world.fleet.follow;
+  }
   render(){
     this.controls.update();this.clampTarget();
     if(!this.dirty)return;
@@ -202,5 +227,5 @@ export class WorldView {
     this.renderer.render(this.scene,this.camera);
     this.renderedFrames++;this.paintMs.push(performance.now()-started);if(this.paintMs.length>120)this.paintMs.shift();
   }
-  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
+  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,trainModels:this.trainModel?1:0,trainVisible:this.trainModel?.visible??false,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
 }

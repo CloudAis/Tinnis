@@ -1,3 +1,5 @@
+import { operatingGuard, queueLineChange } from './train';
+export { deploymentReadiness } from './route';
 import { CONFIG } from '../config';
 import { STATIONS, type StationId } from '../world/map';
 import { type AssetKey, type EdgeId, type NodeId, type Purchase, type ReceiptItem, assetUnlocked, edgeById, edgePrice, findPath, nodeById, STATION_NODES, stationName, validName } from '../world/railway';
@@ -27,22 +29,6 @@ export function previewTrack(world: WorldState, from: string | null, to: string 
   else if (world.economy.balance < cost) reason = `资金不足，还差 ¥ ${(cost-world.economy.balance).toLocaleString('en-US')}。`;
   return { ok: !reason, reason, path, missing, cost };
 }
-export function deploymentReadiness(world: WorldState) {
-  const r=world.railway;
-  const stops=r.line.stops;
-  const fail=(reason:string) => ({ ok:false, reason, nodes:[] as NodeId[], edges:[] as EdgeId[], points:[] as (readonly [number,number,number])[], length:0 });
-  if (stops.length<2 || new Set(stops).size!==stops.length) return fail('至少需要两个不同的停靠站，暂不可投车。');
-  for (const id of stops) if (!r.stations[id]) return fail(`${stationName(r,id)}尚未建成，暂不可投车。`);
-  const nodes:NodeId[]=[],edges:EdgeId[]=[];
-  let length=0;
-  for (let i=1;i<stops.length;i++) {
-    const path=findPath(STATION_NODES[stops[i-1]],STATION_NODES[stops[i]],id=>!!r.tracks[id]);
-    if (!path) return fail(`${stationName(r,stops[i-1])}—${stationName(r,stops[i])}轨道断开，暂不可投车。`);
-    nodes.push(...(i===1 ? path.nodes : path.nodes.slice(1)));edges.push(...path.edges);length+=path.length;
-  }
-  // Positions come directly from the same edge/node geometry used by rendering.
-  return { ok:true, reason:'线路已连通；投车功能于第 3 阶段开放。', nodes, edges, points:nodes.map(id=>nodeById(id)!.position), length };
-}
 export function describeCommand(world:WorldState,c:Command): { ok:boolean; message:string; amount:number } {
   if (c.revision!==world.railway.revision) return {ok:false,message:'建设状态已变化，请重新预览后确认。',amount:0};
   const r=world.railway;
@@ -63,6 +49,8 @@ export function describeCommand(world:WorldState,c:Command): { ok:boolean; messa
     case 'remove-track': {
       const asset=c.type==='remove-station'?r.stations[c.station]:r.tracks[c.edge];
       if (!asset) return {ok:false,message:'该资产已不存在，不重复退款。',amount:0};
+      const blocked=operatingGuard(world,c.type==='remove-station'?{stations:[c.station],edges:[]}:{stations:[],edges:[c.edge]});
+      if(blocked)return {ok:false,message:blocked,amount:0};
       amount=Math.floor(asset.paid*CONFIG.demolitionRefund);
       message=c.type==='remove-station'?`拆除${stationName(r,c.station)}，保留周围轨道；依赖此站的线路将失效。`:`拆除${edgeById(c.edge)!.name}；依赖它的线路将失效，不可投车。`;break;
     }
@@ -102,7 +90,7 @@ export function executeCommand(world:WorldState,c:Command,guard:RemovalGuard=()=
     if (!transact(world,`rail:remove:${asset.purchaseId}:${key}`,description.amount,description.message,{kind:'remove',key,purchaseId:asset.purchaseId})) return {ok:false,message:'该拆除已处理，不重复退款。'};
     if (c.type==='remove-station') delete r.stations[c.station];else delete r.tracks[c.edge];
   } else if (c.type==='rename-station') r.stations[c.station]!.name=c.name.trim();
-  else r.line.stops=[...c.stops];
+  else { r.line.stops=[...c.stops];queueLineChange(world,c.stops); }
   r.revision++;
   return {ok:true,message:description.message};
 }

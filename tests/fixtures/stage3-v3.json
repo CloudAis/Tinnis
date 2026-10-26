@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 3,
+  "savedAt": "2026-10-26T02:30:09.678Z",
+  "world": {
+    "map": {
+      "id": "coastal-valley",
+      "version": 1,
+      "seed": 72103
+    },
+    "clock": {
+      "tick": 0,
+      "minutes": 480,
+      "speed": 4,
+      "paused": true
+    },
+    "economy": {
+      "balance": 50000,
+      "ledger": [
+        {
+          "id": "rail:build:1",
+          "amount": -8000,
+          "reason": "建设汐港站，保留 1 个泊位。",
+          "tick": 0,
+          "construction": {
+            "kind": "build",
+            "items": [
+              {
+                "key": "station:A",
+                "paid": 8000
+              }
+            ]
+          }
+        },
+        {
+          "id": "rail:build:2",
+          "amount": -8000,
+          "reason": "建设青溪站，保留 2 个泊位。",
+          "tick": 0,
+          "construction": {
+            "kind": "build",
+            "items": [
+              {
+                "key": "station:B",
+                "paid": 8000
+              }
+            ]
+          }
+        },
+        {
+          "id": "rail:build:3",
+          "amount": -12000,
+          "reason": "沿A · 汐港 → B · 青溪建设 3 段轨道，所选路径 47.5 米；已建段不重复计费。",
+          "tick": 0,
+          "construction": {
+            "kind": "build",
+            "items": [
+              {
+                "key": "track:ab-coast",
+                "paid": 4600
+              },
+              {
+                "key": "track:ab-valley",
+                "paid": 4000
+              },
+              {
+                "key": "track:ab-town",
+                "paid": 3400
+              }
+            ]
+          }
+        },
+        {
+          "id": "fleet:buy:1",
+          "amount": -22000,
+          "reason": "购置青叶号 · 轻型车，定员 24 人。",
+          "tick": 0,
+          "vehicle": {
+            "kind": "buy",
+            "vehicleId": "train-0001",
+            "type": "light",
+            "paid": 22000
+          }
+        }
+      ]
+    },
+    "railway": {
+      "revision": 3,
+      "nextSerial": 4,
+      "stations": {
+        "A": {
+          "purchaseId": "rail:build:1",
+          "paid": 8000,
+          "builtAtTick": 0,
+          "name": "汐港站"
+        },
+        "B": {
+          "purchaseId": "rail:build:2",
+          "paid": 8000,
+          "builtAtTick": 0,
+          "name": "青溪站"
+        }
+      },
+      "tracks": {
+        "ab-coast": {
+          "purchaseId": "rail:build:3",
+          "paid": 4600,
+          "builtAtTick": 0
+        },
+        "ab-valley": {
+          "purchaseId": "rail:build:3",
+          "paid": 4000,
+          "builtAtTick": 0
+        },
+        "ab-town": {
+          "purchaseId": "rail:build:3",
+          "paid": 3400,
+          "builtAtTick": 0
+        }
+      },
+      "line": {
+        "id": "line-main",
+        "name": "海风线",
+        "stops": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    "fleet": {
+      "revision": 2,
+      "nextSerial": 2,
+      "follow": false,
+      "vehicle": {
+        "id": "train-0001",
+        "type": "light",
+        "purchaseId": "fleet:buy:1",
+        "paid": 22000,
+        "status": "ready",
+        "route": {
+          "lineId": "line-main",
+          "stops": [
+            "A",
+            "B"
+          ],
+          "nodes": [
+            "node-a",
+            "node-coast",
+            "node-valley",
+            "node-b"
+          ],
+          "edges": [
+            "ab-coast",
+            "ab-valley",
+            "ab-town"
+          ],
+          "length": 47.450868348985466
+        },
+        "pendingStops": null,
+        "direction": 1,
+        "distance": 0,
+        "legElapsed": 0,
+        "dwellRemaining": 10,
+        "currentStation": "A",
+        "stopRequested": false,
+        "tripSerial": 0,
+        "legsCompleted": 0,
+        "arrivalSerial": 0
+      }
+    },
+    "towns": {
+      "town-shiokou": {
+        "level": 1
+      },
+      "town-aokawa": {
+        "level": 1
+      },
+      "town-kaede": {
+        "level": 1
+      }
+    },
+    "selected": null,
+    "camera": {
+      "position": [
+        148,
+        145,
+        180
+      ],
+      "target": [
+        0,
+        0,
+        -3
+      ]
+    }
+  }
+}
