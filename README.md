@@ -1,8 +1,10 @@
 # Tinnis · 沿线小镇
 
-浏览器三维日式地方铁路与微缩小镇经营游戏。当前完成 **第 9 阶段：引导任务与完整存档**，具备经营、双车调度、成长支线与昼夜旅行体验。本阶段止于阶段 9，后续按本次授权继续阶段 10 验收。
+浏览器三维日式地方铁路与微缩小镇经营游戏。当前完成 **首版 0.1.0（阶段 9、10）**，具备引导、完整存档恢复、经营、双车调度、成长支线与昼夜旅行体验。最终验收结果见 VALIDATION.md。
 
 ## 启动
+
+直接试玩发行包：解压后进入“沿线小镇”文件夹，运行 `python3 -m http.server 8080`，打开 `http://localhost:8080`。无需安装Node依赖，断开互联网也能启动；不要直接双击HTML。下面是源码开发方式。
 
 Node.js 24+（本环境 24.19.0 / npm 11.9.0），支持 WebGL2 的浏览器：
 
@@ -69,7 +71,10 @@ npm run test:dispatch     # 双车投放、等信号重载、交替/触屏 4 组
 npm run test:growth       # 升级付费、D 建线、旅游运输、离线/触屏 6 组
 npm run test:travel       # 跟车往返、乘客视角、昼夜雨景、声音/离线/触屏
 npm run test:recovery     # 引导首趟、新游戏/备份、损坏导入、60秒自动保存、触控
-npm run verify           # 上述完整顺序
+npm run test:balance      # 三种正常经营配置十日对照
+npm run test:release      # 同负载性能、资源复用、跨车型恢复、冷启动/离线
+npm run verify           # 类型/规则/构建及全部浏览器回归
+npm run test:soak         # 另行至少30分钟真实连续运行，不加速墙钟
 ```
 
 浏览器检查先构建，脚本各自启动并清理预览进程，默认 `/usr/bin/chromium`（可用 `CHROMIUM_PATH` 覆盖）。截图、下载和报告位于忽略目录 `artifacts/`；实测结果、运行环境、性能限制和检查点见 [PROGRESS.md](PROGRESS.md)。`?diagnostics=1` 提供只读 `window.__ALONGLINE__.snapshot()`，正常界面不暴露调试数据。
@@ -83,10 +88,12 @@ npm run preview
 python3 -m http.server 8080 --directory dist
 ```
 
+先运行 `npm run verify`、`npm run test:balance`、`npm run test:soak`，再运行 `npm run package`，可在30分钟验收通过且发行目录与测试指纹一致后生成发行包、源码包和SHA256清单；它不重新构建候选。发行目录解压到 `artifacts/release-unpacked/沿线小镇` 后，`npm run test:packaged` 使用说明中的Python HTTP服务复核实际ZIP。打包还需Python3，运行发行只需任一本地HTTP静态服务。
+
 完整 `dist/` 可复制/压缩发行，通过 HTTP 打开。Three.js、脚本、模型、SVG、样式和系统字体均本地打包，无运行时 CDN/远程资源。生产版在 HTTPS 或 localhost 首次访问后缓存完整资源，可断网重载；开发版不注册 service worker。
 
 ## 结构与后续
 
 `src/config.ts` 集中参数；`world/` 稳定 ID/配置状态；`simulation/` 时钟、命令、账本、客流、分段行车、许可、成长；`storage/` 版本迁移与校验；`render/` 景观/车辆/地块/人群；`ui/` DOM 面板；`tests/` 规则、旧版固定存档和浏览器流程。
 
-约定见 [AGENTS.md](AGENTS.md)，完整规格/十阶段与决策见 [PLAN.md](PLAN.md)。下一阶段入口为 10「平衡验收」：冻结大功能，比较经营配置、同环境性能与至少30分钟真实连续运行，整理首版交付。C 与额外装饰保持预留，运输、收支、调度和存档优先。
+约定见 [AGENTS.md](AGENTS.md)，完整规格/十阶段与决策见 [PLAN.md](PLAN.md)。首版验证与经营对照见 [VALIDATION.md](VALIDATION.md)，边界、存档容量和下一轮建议见 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)。本轮在首版交付后停止，不自动追加C站或其他大功能。

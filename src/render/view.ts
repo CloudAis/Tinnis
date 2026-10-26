@@ -6,7 +6,7 @@ import { stationUnlocked } from '../simulation/development';
 import { createDevelopmentModels } from './development';
 import { allTrains } from '../world/fleet';
 import { PlatformCrowd } from './passengers';
-import { createTrainModel } from './train';
+import { reconcileTrainModels } from './train';
 import type { Pose } from '../simulation/train';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -186,15 +186,15 @@ export class WorldView {
       this.renderer.shadowMap.needsUpdate=true;this.dirty=true;
     }
     this.editor={...editor};this.labels.dataset.tool=editor.mode;
-    const pkey=JSON.stringify([key,world.economy.balance,editor]);
+    const plan=editor.mode==='track'?previewTrack(world,editor.from,editor.to):null;
+    const pkey=JSON.stringify([key,plan?.ok,editor]);
     if(pkey!==this.previewKey){
       this.previewKey=pkey;this.preview.traverse(o=>{if((o instanceof THREE.Line||o instanceof THREE.Mesh)&&!Array.isArray(o.material))o.material.dispose();});disposeGeometry(this.preview);this.preview.clear();this.dirty=true;
       this.labels.querySelectorAll<HTMLButtonElement>('.node-pin').forEach(b=>{
         b.setAttribute('aria-pressed',String(b.dataset.node===editor.from||b.dataset.node===editor.to));
       });
       if(editor.mode==='track'){
-        const plan=previewTrack(world,editor.from,editor.to);
-        if(plan.path&&plan.path.points.length>1){
+        if(plan?.path&&plan.path.points.length>1){
           const geo=new THREE.BufferGeometry().setFromPoints(plan.path.points.map(p=>new THREE.Vector3(p[0],2.85,p[2])));
           const color=plan.ok?'#426f50':plan.missing.length?'#b87855':'#759285';
           for(let i=1;i<plan.path.points.length;i++){
@@ -217,10 +217,10 @@ export class WorldView {
     this.selectedTrainId=world.fleet.vehicle?.id??'';
     this.updateDevelopment(world);
     if(this.crowd.update(world))this.dirty=true;
-    const vehicles=allTrains(world.fleet),ids=new Set(vehicles.map(v=>v.id));
-    for(const [id,model] of this.trainModels)if(!ids.has(id)){disposeGeometry(model);this.scene.remove(model);this.trainModels.delete(id);this.dirty=true;}
+    const vehicles=allTrains(world.fleet);
+    if(reconcileTrainModels(this.scene,this.trainModels,vehicles))this.dirty=true;
     for(const v of vehicles){
-      let model=this.trainModels.get(v.id);if(!model){model=createTrainModel(v.type);this.trainModels.set(v.id,model);this.scene.add(model);this.dirty=true;}
+      const model=this.trainModels.get(v.id)!;
       const p=poses.find(p=>p.id===v.id),visible=!!p;
       if(model.visible!==visible){model.visible=visible;this.dirty=true;}
       if(p){if(model.position.distanceToSquared(new THREE.Vector3(...p.position))>1e-9||Math.abs(model.rotation.y-p.heading)>1e-6)this.dirty=true;model.position.fromArray(p.position);model.rotation.y=p.heading;}
@@ -242,5 +242,5 @@ export class WorldView {
     this.renderer.render(this.scene,this.camera);
     this.renderedFrames++;this.paintMs.push(performance.now()-started);if(this.paintMs.length>120)this.paintMs.shift();
   }
-  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,developmentModels:this.developmentModels.children.length,camera:this.travel.stats(),daylight:this.atmosphere.daylight,weather:this.atmosphere.weather,rainDrops:this.atmosphere.rain.visible?384:0,stationLamps:this.details.count,nightLights:this.atmosphere.daylight<.75,trainModels:this.trainModels.size,trainVisible:[...this.trainModels.values()].some(m=>m.visible),visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
+  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,developmentModels:this.developmentModels.children.length,camera:this.travel.stats(),daylight:this.atmosphere.daylight,weather:this.atmosphere.weather,rainDrops:this.atmosphere.rain.visible?384:0,stationLamps:this.details.count,nightLights:this.atmosphere.daylight<.75,trainModels:this.trainModels.size,trainModelTypes:Object.fromEntries([...this.trainModels].map(([id,m])=>[id,m.userData.vehicleType])),trainVisible:[...this.trainModels.values()].some(m=>m.visible),visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
 }

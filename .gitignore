@@ -5,3 +5,5 @@ artifacts/
 *.local
 
 .npm-cache/
+
+__pycache__/

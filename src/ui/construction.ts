@@ -20,8 +20,8 @@ export class ConstructionUI {
     document.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach(b=>b.addEventListener('click',()=>{document.querySelector('.sidebar')!.classList.remove('collapsed');const toggle=document.getElementById('collapse-tools')!;toggle.textContent='⌄';toggle.setAttribute('aria-expanded','true');toggle.setAttribute('aria-label','收起建设面板');actions.mode(b.dataset.mode as EditorState['mode']);}));
   }
   update(world:WorldState,editor:EditorState){
-    const key=JSON.stringify([world.selected,world.railway,editor.mode==='track'?world.economy.balance:null,world.development.unlockedD,editor]);
-    if(key===this.key)return;this.key=key;
+    const key=JSON.stringify([world.selected,world.railway,world.development.unlockedD,editor]);
+    if(key===this.key){if(editor.mode==='track'){const p=previewTrack(world,editor.from,editor.to);document.getElementById('preview-reason')!.textContent=p.reason||`${p.path!.length.toFixed(1)} 米 · ${p.missing.length} 段待建 · 确认后扣费`;document.querySelector('.preview-summary')!.className=`preview-summary ${p.ok?'valid':'invalid'}`;(document.getElementById('preview-build') as HTMLButtonElement).disabled=!p.ok;}return;}this.key=key;
     const r=world.railway,ready=deploymentReadiness(world);
     document.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===editor.mode)));
     (document.querySelector('.town-list') as HTMLElement).hidden=editor.mode!=='inspect';

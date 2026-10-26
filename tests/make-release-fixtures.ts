@@ -1,0 +1,2 @@
+import {mkdirSync,writeFileSync} from 'node:fs';import {network,cmd} from './support/world';import {encodeSave,decodeSave} from '../src/storage/save';
+mkdirSync('artifacts',{recursive:true});for(const model of ['light','large'] as const){const w=network();cmd(w,{type:'buy',model});cmd(w,{type:'dispatch'});w.clock.paused=true;const raw=encodeSave(w);decodeSave(raw);writeFileSync(`artifacts/release-${model}.json`,raw);}

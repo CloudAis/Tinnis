@@ -16,8 +16,13 @@
     "test:dispatch": "node tests/dispatch-browser.mjs",
     "test:business": "node tests/business-browser.mjs",
     "test:passengers": "node tests/passenger-browser.mjs",
-    "verify": "npm run check && npm test && npm run build && npm run test:e2e && npm run test:train && npm run test:passengers && npm run test:business && npm run test:dispatch && npm run test:growth && npm run test:travel && npm run test:recovery",
-    "test:recovery": "node tests/recovery-browser.mjs"
+    "verify": "npm run check && npm test && npm run build && npm run test:e2e && npm run test:train && npm run test:passengers && npm run test:business && npm run test:dispatch && npm run test:growth && npm run test:travel && npm run test:recovery && npm run test:release",
+    "test:recovery": "node tests/recovery-browser.mjs",
+    "test:balance": "tsx tests/balance.ts",
+    "test:release": "node tests/release-browser.mjs",
+    "test:soak": "node tests/soak-browser.mjs",
+    "package": "node --import tsx scripts/export-config.ts && python3 scripts/package-release.py",
+    "test:packaged": "node tests/packaged-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

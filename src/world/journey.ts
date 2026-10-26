@@ -12,7 +12,7 @@ export function milestoneEvidence(w:WorldState):Record<Milestone,boolean>{return
  profit:w.finance.days.some(d=>d.simulatedMinutes>=1440-1e-6&&d.net>0),
  upgrade:w.economy.ledger.some(e=>e.upgrade?.kind==='build'),region:w.development.unlockedD,
 };}
-export function syncJourney(w:WorldState){const proof=milestoneEvidence(w);for(const id of MILESTONES)if(proof[id]&&w.journey.milestones[id]===undefined)w.journey.milestones[id]=w.clock.minutes;}
+export function syncJourney(w:WorldState){if(MILESTONES.every(id=>w.journey.milestones[id]!==undefined))return;const proof=milestoneEvidence(w);for(const id of MILESTONES)if(proof[id]&&w.journey.milestones[id]===undefined)w.journey.milestones[id]=w.clock.minutes;}
 export const GUIDE=[
  {id:'a',title:'在汐港建第一座车站',text:'选择 A 汐港候选点，查看 ¥8,000 工程，再确认建设。',target:'[data-route="A"]'},
  {id:'b',title:'让青溪也有车站',text:'选择 B 青溪，确认建设。青溪自带两个会让泊位。',target:'[data-route="B"]'},
