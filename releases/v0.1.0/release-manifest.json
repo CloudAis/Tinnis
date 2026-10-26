@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "buildHash": "ea93c9a41d060097fad9fc07a8c5e964736728db33c8aab1dd754f71d22d5349",
+  "soakSeconds": 1806.617821979,
+  "archives": {
+    "沿线小镇-v0.1.0.zip": {
+      "bytes": 265964,
+      "sha256": "34c2596da6763c27847608dbd0c1ecdc6390e45959ffbc320646b1e076a8abed"
+    },
+    "沿线小镇-v0.1.0-源码.zip": {
+      "bytes": 262339,
+      "sha256": "c4d4a703390f718d2367c69085859ebb55f7058687c1947271ec144e013e3fd5"
+    }
+  }
+}

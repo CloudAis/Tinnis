@@ -2,6 +2,8 @@
 
 浏览器三维日式地方铁路与微缩小镇经营游戏。当前完成 **首版 0.1.0（阶段 9、10）**，具备引导、完整存档恢复、经营、双车调度、成长支线与昼夜旅行体验。最终验收结果见 VALIDATION.md。
 
+GitHub 下载：[离线发行包](releases/v0.1.0/沿线小镇-v0.1.0.zip) · [源码包](releases/v0.1.0/沿线小镇-v0.1.0-源码.zip) · [校验清单](releases/v0.1.0/release-manifest.json)。文件页点击 Raw / Download raw file 下载。
+
 ## 启动
 
 直接试玩发行包：解压后进入“沿线小镇”文件夹，运行 `python3 -m http.server 8080`，打开 `http://localhost:8080`。无需安装Node依赖，断开互联网也能启动；不要直接双击HTML。下面是源码开发方式。
