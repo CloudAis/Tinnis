@@ -1,3 +1,4 @@
+import { passengerStats } from './world/passengers';
 import { describeTrainCommand, executeTrainCommand, type TrainCommand } from './simulation/train';
 import './ui/style.css';
 import { UI } from './ui/app';
@@ -70,7 +71,7 @@ const ui=new UI(document.getElementById('app')!,{
     const link=document.createElement('a');link.href=url;link.download='沿线小镇-进度.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);ui.toast('已导出进度文件。');
   },
   async import(file){
-    try{if(file.size>2_000_000)throw new Error('存档文件过大。');restore(await file.text());store();ui.toast('导入成功，欢迎回到沿线。');}
+    try{if(file.size>8_000_000)throw new Error('存档文件过大。');restore(await file.text());store();ui.toast('导入成功，欢迎回到沿线。');}
     catch(e){ui.toast((e as Error).message,true);}
   },
 });
@@ -119,6 +120,6 @@ if(import.meta.env.PROD&&'serviceWorker'in navigator){
 if(new URLSearchParams(location.search).has('diagnostics')){
   Object.defineProperty(window,'__ALONGLINE__',{value:{snapshot(){
     syncCamera();const sorted=[...frames].sort((a,b)=>a-b);
-    return {world:structuredClone(world),editor:structuredClone(editor),line:deploymentReadiness(world),render:view?.stats(),performance:{samples:frames.length,medianFrameMs:sorted[Math.floor(sorted.length/2)]??0,p95FrameMs:sorted[Math.floor(sorted.length*.95)]??0},webgl:view?.renderer.getContext().getParameter(WebGL2RenderingContext.RENDERER)};
+    return {world:structuredClone(world),editor:structuredClone(editor),line:deploymentReadiness(world),passengerStats:passengerStats(world.passengers),render:view?.stats(),performance:{samples:frames.length,medianFrameMs:sorted[Math.floor(sorted.length/2)]??0,p95FrameMs:sorted[Math.floor(sorted.length*.95)]??0},webgl:view?.renderer.getContext().getParameter(WebGL2RenderingContext.RENDERER)};
   }},writable:false});
 }

@@ -1570,3 +1570,27 @@
 .train-actions button { border:1px solid #cad6bd; border-radius:4px; padding:10px; font-size:11px; }
 .train-actions [aria-pressed=true] { background:#e0e9d6; }
 @media(max-width:800px){.sidebar[data-tool=train]{max-height:43vh;}.vehicle-card{padding:12px;}.tool-tabs button{font-size:9px;}}
+.sidebar[data-tool=passengers] .selection-panel { border-top:0;margin-top:0;padding-top:0; }
+.sidebar[data-tool=passengers] .sidebar-note { display:none; }
+.service-status { font-size:10px;color:#9b9e86;line-height:1.8;margin:6px 0 17px;display:flex;align-items:center;gap:7px; }
+.service-status>span { width:5px;height:5px;border-radius:50%;background:#b9b49a; }
+.service-status.active { color:#678a60; }.service-status.active>span { background:#80a36e; }
+.pax-stats { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px; }
+.pax-stats>div { border:1px solid #dce2d0;background:#e9edde;border-radius:4px;padding:13px; }
+.pax-stats span { display:block;font-size:10px;color:#90a080; }.pax-stats b { display:block;font:24px monospace;color:#557650;margin-top:7px; }
+.load-summary { display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:10px;color:#9ca58d;margin:15px 0 7px; }
+.load-summary strong { color:#6e8b61;font-weight:500; }
+meter { width:100%;height:8px;accent-color:#7a9c68; }
+meter::-webkit-meter-bar { background:#e4e8d9;border:0; }meter::-webkit-meter-optimum-value { background:#87a775; }
+.mass-balance { font:10px/1.9 sans-serif;color:#879678;margin:10px 0 24px; }
+.platform-list>div { display:flex;flex-wrap:wrap;gap:9px;align-items:center;border-bottom:1px solid #dfe4d5;padding:13px 0; }
+.platform-list b { font-size:11px;font-weight:400;flex:1; }.platform-list strong { font:14px monospace;color:#739364; }
+.platform-list small { width:100%;font-size:9px;color:#9ba58b; }
+.demand-summary { display:flex;flex-direction:column;gap:9px;margin:20px 0 10px; }
+.demand-summary span { display:flex;justify-content:space-between;font-size:10px;color:#8f9c82; }.demand-summary b { font:12px monospace;color:#7c9470; }
+.completion-summary { border:1px solid #dfd8c5;border-radius:5px;background:#f0eadc;padding:14px;margin:20px 0 10px; }
+.completion-summary span { font-size:10px;color:#a18e6b; }.completion-summary b { display:block;font:21px monospace;color:#a58a60;margin:9px 0; }.completion-summary small { font-size:9px;line-height:1.9;color:#a29b83; }
+.recent-journeys>div { padding:10px 0;border-bottom:1px solid #e1e5d8; }.recent-journeys span { display:block;font-size:10px;color:#7f9373; }.recent-journeys small { display:block;font-size:9px;color:#a1a990;margin-top:6px; }
+#passenger-dashboard { border-top:1px solid #dce2d1;margin-top:19px;padding-top:16px; }.station-pax-status { color:#7e9870!important;font-size:10px; }
+.tool-tabs button { padding-left:3px;padding-right:3px; }
+@media(max-width:800px){.sidebar[data-tool=passengers]{max-height:43vh;}.pax-stats{grid-template-columns:repeat(4,1fr);gap:6px;}.pax-stats>div{padding:9px;}.pax-stats b{font-size:20px;}.mass-balance{font-size:9px;}.tool-tabs button{font-size:9px;padding-left:2px;padding-right:2px;}}

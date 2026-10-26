@@ -1,3 +1,4 @@
+import { onboardCount } from '../world/passengers';
 import { CONFIG } from '../config';
 import type { WorldState } from '../world/state';
 import { type Train, type VehicleType, vehicleName, type RouteSnapshot } from '../world/fleet';
@@ -40,13 +41,14 @@ export function describeTrainCommand(w:WorldState,c:TrainCommand) {
     return {ok:true,message:`购置${vehicleName(c.model)}，定员 ${CONFIG.vehicles[c.model].capacity} 人。`,amount:-cost};
   }
   if(!v)return fail('请先购置列车。');
-  if(c.type==='sell')return v.status==='depot'?{ok:true,message:'出售车库中的空车，返原购车价 60%。',amount:Math.floor(v.paid*CONFIG.vehicleRefund)}:fail('仅可出售已回库的空车。');
+  if(c.type==='sell')return v.status==='depot'&&onboardCount(w)===0?{ok:true,message:'出售车库中的空车，返原购车价 60%。',amount:Math.floor(v.paid*CONFIG.vehicleRefund)}:fail('仅可出售已回库的空车。');
   if(c.type==='dispatch'){
     if(!['depot','stopped'].includes(v.status))return fail('列车已经投入运行，不重复投放。');
     const p=deploymentReadiness(w);if(!p.ok)return fail(p.reason);
     return {ok:true,message:'列车已投放，按停站时间等待发车。',amount:0};
   }
   if(c.type==='stop')return ['depot','stopped'].includes(v.status)?fail('列车已经停运。'):{ok:true,message:'运行中将在下一站停稳后收车；停站中可直接停运。',amount:0};
+  if(c.type==='withdraw'&&onboardCount(w)>0)return fail('车上仍有乘客，请送达后再回库。');
   if(c.type==='withdraw')return v.status==='stopped'?{ok:true,message:'列车已回库，线路依赖已解除。',amount:0}:fail('请先在车站停运，不能从行驶途中回库。');
   return v.route?{ok:true,message:c.enabled?'跟车视角已开启。':'已退出跟车视角。',amount:0}:fail('请先投放列车再跟车。');
 }
@@ -65,7 +67,7 @@ export function executeTrainCommand(w:WorldState,c:TrainCommand) {
     applyPendingRoute(w,v!);v!.stopRequested=false;v!.status='ready';v!.dwellRemaining=CONFIG.journey.dwellMinutes;v!.legElapsed=0;
   }else if(c.type==='stop'){
     v!.stopRequested=true;
-    if(v!.currentStation){v!.status='stopped';v!.dwellRemaining=0;}
+    if(v!.currentStation&&onboardCount(w)===0){v!.status='stopped';v!.dwellRemaining=0;}
   }else if(c.type==='withdraw'){
     v!.status='depot';v!.route=null;v!.pendingStops=null;v!.currentStation=null;v!.distance=0;v!.legElapsed=0;v!.dwellRemaining=0;v!.stopRequested=false;f.follow=false;
   }else f.follow=c.enabled;

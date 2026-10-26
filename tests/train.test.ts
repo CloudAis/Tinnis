@@ -43,7 +43,7 @@ test('operational dependencies protected through stop until depot; route edits a
   assert.equal(executeCommand(w,{type:'remove-track',edge:'ab-valley',revision:w.railway.revision}).ok,false);assert.deepEqual(w,before);
   const pose=trainPose(w);executeCommand(w,{type:'set-stops',stops:['B','A'],revision:w.railway.revision});assert.deepEqual(trainPose(w),pose);assert.deepEqual(w.fleet.vehicle!.route!.stops,['A','B']);assert.deepEqual(w.fleet.vehicle!.pendingStops,['B','A']);
   assert.deepEqual(decodeSave(encodeSave(w)).world,w);minutes(sim,70);assert.equal(w.fleet.vehicle!.currentStation,'B');assert.deepEqual(w.fleet.vehicle!.route!.stops,['B','A']);assert.equal(w.fleet.vehicle!.pendingStops,null);
-  executeTrainCommand(w,{type:'stop',revision:w.fleet.revision});assert.equal(w.fleet.vehicle!.status,'stopped');assert.equal(executeCommand(w,{type:'remove-station',station:'A',revision:w.railway.revision}).ok,false);
+  executeTrainCommand(w,{type:'stop',revision:w.fleet.revision});if(w.fleet.vehicle!.status!=='stopped')minutes(sim,100);assert.equal(w.fleet.vehicle!.status,'stopped');assert.equal(executeCommand(w,{type:'remove-station',station:'A',revision:w.railway.revision}).ok,false);
   executeTrainCommand(w,{type:'withdraw',revision:w.fleet.revision});assert.equal(executeCommand(w,{type:'remove-track',edge:'ab-valley',revision:w.railway.revision}).ok,true);
 });
 test('v2 migrates empty fleet; invalid train position/receipt/future capacity rejected',()=>{

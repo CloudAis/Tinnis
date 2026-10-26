@@ -1,0 +1,853 @@
+{
+  "schemaVersion": 4,
+  "savedAt": "2026-10-26T02:52:33.071Z",
+  "world": {
+    "map": {
+      "id": "coastal-valley",
+      "version": 1,
+      "seed": 72103
+    },
+    "clock": {
+      "tick": 625,
+      "minutes": 729.9999999999858,
+      "speed": 4,
+      "paused": true
+    },
+    "economy": {
+      "balance": 63200,
+      "ledger": [
+        {
+          "id": "rail:build:1",
+          "amount": -8000,
+          "reason": "建设汐港站，保留 1 个泊位。",
+          "tick": 0,
+          "construction": {
+            "kind": "build",
+            "items": [
+              {
+                "key": "station:A",
+                "paid": 8000
+              }
+            ]
+          }
+        },
+        {
+          "id": "rail:build:2",
+          "amount": -8000,
+          "reason": "建设青溪站，保留 2 个泊位。",
+          "tick": 0,
+          "construction": {
+            "kind": "build",
+            "items": [
+              {
+                "key": "station:B",
+                "paid": 8000
+              }
+            ]
+          }
+        },
+        {
+          "id": "rail:build:3",
+          "amount": -12000,
+          "reason": "沿A · 汐港 → B · 青溪建设 3 段轨道，所选路径 47.5 米；已建段不重复计费。",
+          "tick": 0,
+          "construction": {
+            "kind": "build",
+            "items": [
+              {
+                "key": "track:ab-coast",
+                "paid": 4600
+              },
+              {
+                "key": "track:ab-valley",
+                "paid": 4000
+              },
+              {
+                "key": "track:ab-town",
+                "paid": 3400
+              }
+            ]
+          }
+        },
+        {
+          "id": "fleet:buy:1",
+          "amount": -22000,
+          "reason": "购置青叶号 · 轻型车，定员 24 人。",
+          "tick": 0,
+          "vehicle": {
+            "kind": "buy",
+            "vehicleId": "train-0001",
+            "type": "light",
+            "paid": 22000
+          }
+        },
+        {
+          "id": "fleet:sell:train-0001",
+          "amount": 13200,
+          "reason": "出售车库中的空车，返原购车价 60%。",
+          "tick": 625,
+          "vehicle": {
+            "kind": "sell",
+            "vehicleId": "train-0001",
+            "purchaseId": "fleet:buy:1"
+          }
+        }
+      ]
+    },
+    "railway": {
+      "revision": 3,
+      "nextSerial": 4,
+      "stations": {
+        "A": {
+          "purchaseId": "rail:build:1",
+          "paid": 8000,
+          "builtAtTick": 0,
+          "name": "汐港站"
+        },
+        "B": {
+          "purchaseId": "rail:build:2",
+          "paid": 8000,
+          "builtAtTick": 0,
+          "name": "青溪站"
+        }
+      },
+      "tracks": {
+        "ab-coast": {
+          "purchaseId": "rail:build:3",
+          "paid": 4600,
+          "builtAtTick": 0
+        },
+        "ab-valley": {
+          "purchaseId": "rail:build:3",
+          "paid": 4000,
+          "builtAtTick": 0
+        },
+        "ab-town": {
+          "purchaseId": "rail:build:3",
+          "paid": 3400,
+          "builtAtTick": 0
+        }
+      },
+      "line": {
+        "id": "line-main",
+        "name": "海风线",
+        "stops": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    "fleet": {
+      "revision": 6,
+      "nextSerial": 2,
+      "follow": false,
+      "vehicle": null
+    },
+    "passengers": {
+      "nextBatchSerial": 65,
+      "nextRideSerial": 28,
+      "lastDemandMinute": 730,
+      "carry": {
+        "A>B": 0.9254790631653665,
+        "B>A": 0.9254790631653665,
+        "A>D": 0,
+        "D>A": 0,
+        "B>D": 0,
+        "D>B": 0
+      },
+      "totals": {
+        "potential": 88,
+        "accepted": 64,
+        "noService": 24,
+        "priceRejected": 0,
+        "abandoned": 1
+      },
+      "waiting": [
+        {
+          "id": "batch-9",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 491.9999999999993,
+          "count": 1
+        },
+        {
+          "id": "batch-11",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 495,
+          "count": 1
+        },
+        {
+          "id": "batch-13",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 497,
+          "count": 1
+        },
+        {
+          "id": "batch-15",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 499,
+          "count": 1
+        },
+        {
+          "id": "batch-17",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 501.99999999999875,
+          "count": 1
+        },
+        {
+          "id": "batch-19",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 503.99999999999864,
+          "count": 1
+        },
+        {
+          "id": "batch-21",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 505.9999999999985,
+          "count": 1
+        },
+        {
+          "id": "batch-23",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 509,
+          "count": 1
+        },
+        {
+          "id": "batch-25",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 511,
+          "count": 1
+        },
+        {
+          "id": "batch-27",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 513,
+          "count": 1
+        },
+        {
+          "id": "batch-29",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 515.999999999998,
+          "count": 1
+        },
+        {
+          "id": "batch-31",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 517.9999999999978,
+          "count": 1
+        },
+        {
+          "id": "batch-33",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 519.9999999999977,
+          "count": 1
+        },
+        {
+          "id": "batch-35",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 523,
+          "count": 1
+        },
+        {
+          "id": "batch-37",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 525,
+          "count": 1
+        },
+        {
+          "id": "batch-39",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 527,
+          "count": 1
+        },
+        {
+          "id": "batch-41",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 529.9999999999972,
+          "count": 1
+        },
+        {
+          "id": "batch-43",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 531.999999999997,
+          "count": 1
+        },
+        {
+          "id": "batch-45",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 535,
+          "count": 1
+        },
+        {
+          "id": "batch-47",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 537,
+          "count": 1
+        },
+        {
+          "id": "batch-49",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 539,
+          "count": 1
+        },
+        {
+          "id": "batch-50",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 539,
+          "count": 1
+        },
+        {
+          "id": "batch-51",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 543,
+          "count": 1
+        },
+        {
+          "id": "batch-52",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 543,
+          "count": 1
+        },
+        {
+          "id": "batch-53",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 549.999999999996,
+          "count": 1
+        },
+        {
+          "id": "batch-54",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 549.999999999996,
+          "count": 1
+        },
+        {
+          "id": "batch-55",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 555.9999999999957,
+          "count": 1
+        },
+        {
+          "id": "batch-56",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 555.9999999999957,
+          "count": 1
+        },
+        {
+          "id": "batch-57",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 561.9999999999953,
+          "count": 1
+        },
+        {
+          "id": "batch-58",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 561.9999999999953,
+          "count": 1
+        },
+        {
+          "id": "batch-59",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 567.999999999995,
+          "count": 1
+        },
+        {
+          "id": "batch-60",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 567.999999999995,
+          "count": 1
+        },
+        {
+          "id": "batch-61",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 575,
+          "count": 1
+        },
+        {
+          "id": "batch-62",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 575,
+          "count": 1
+        },
+        {
+          "id": "batch-63",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 581,
+          "count": 1
+        },
+        {
+          "id": "batch-64",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 581,
+          "count": 1
+        }
+      ],
+      "onboard": [],
+      "completed": [
+        {
+          "id": "batch-1",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 483,
+          "count": 1,
+          "rideId": "ride-1",
+          "vehicleId": "train-0001",
+          "boardedAt": 483.1999999999998,
+          "fare": 20,
+          "eventId": "completion:ride-1",
+          "completedAt": 579.9999999999943,
+          "tripSerial": 1,
+          "amount": 20
+        },
+        {
+          "id": "batch-3",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 485,
+          "count": 1,
+          "rideId": "ride-2",
+          "vehicleId": "train-0001",
+          "boardedAt": 485.1999999999997,
+          "fare": 20,
+          "eventId": "completion:ride-2",
+          "completedAt": 579.9999999999943,
+          "tripSerial": 1,
+          "amount": 20
+        },
+        {
+          "id": "batch-5",
+          "from": "A",
+          "to": "B",
+          "arrivedAt": 487.99999999999955,
+          "count": 1,
+          "rideId": "ride-3",
+          "vehicleId": "train-0001",
+          "boardedAt": 487.99999999999955,
+          "fare": 20,
+          "eventId": "completion:ride-3",
+          "completedAt": 579.9999999999943,
+          "tripSerial": 1,
+          "amount": 20
+        },
+        {
+          "id": "batch-2",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 483,
+          "count": 1,
+          "rideId": "ride-4",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-4",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-4",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 485,
+          "count": 1,
+          "rideId": "ride-5",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-5",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-6",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 487.99999999999955,
+          "count": 1,
+          "rideId": "ride-6",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-6",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-8",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 489.99999999999943,
+          "count": 1,
+          "rideId": "ride-7",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-7",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-10",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 491.9999999999993,
+          "count": 1,
+          "rideId": "ride-8",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-8",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-12",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 495,
+          "count": 1,
+          "rideId": "ride-9",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-9",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-14",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 497,
+          "count": 1,
+          "rideId": "ride-10",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-10",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-16",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 499,
+          "count": 1,
+          "rideId": "ride-11",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-11",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-18",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 501.99999999999875,
+          "count": 1,
+          "rideId": "ride-12",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-12",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-20",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 503.99999999999864,
+          "count": 1,
+          "rideId": "ride-13",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-13",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-22",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 505.9999999999985,
+          "count": 1,
+          "rideId": "ride-14",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-14",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-24",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 509,
+          "count": 1,
+          "rideId": "ride-15",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-15",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-26",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 511,
+          "count": 1,
+          "rideId": "ride-16",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-16",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-28",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 513,
+          "count": 1,
+          "rideId": "ride-17",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-17",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-30",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 515.999999999998,
+          "count": 1,
+          "rideId": "ride-18",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-18",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-32",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 517.9999999999978,
+          "count": 1,
+          "rideId": "ride-19",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-19",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-34",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 519.9999999999977,
+          "count": 1,
+          "rideId": "ride-20",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-20",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-36",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 523,
+          "count": 1,
+          "rideId": "ride-21",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-21",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-38",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 525,
+          "count": 1,
+          "rideId": "ride-22",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-22",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-40",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 527,
+          "count": 1,
+          "rideId": "ride-23",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-23",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-42",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 529.9999999999972,
+          "count": 1,
+          "rideId": "ride-24",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-24",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-44",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 531.999999999997,
+          "count": 1,
+          "rideId": "ride-25",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-25",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-46",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 535,
+          "count": 1,
+          "rideId": "ride-26",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-26",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        },
+        {
+          "id": "batch-48",
+          "from": "B",
+          "to": "A",
+          "arrivedAt": 537,
+          "count": 1,
+          "rideId": "ride-27",
+          "vehicleId": "train-0001",
+          "boardedAt": 579.9999999999943,
+          "fare": 20,
+          "eventId": "completion:ride-27",
+          "completedAt": 679.9999999999886,
+          "tripSerial": 2,
+          "amount": 20
+        }
+      ]
+    },
+    "towns": {
+      "town-shiokou": {
+        "level": 1
+      },
+      "town-aokawa": {
+        "level": 1
+      },
+      "town-kaede": {
+        "level": 1
+      }
+    },
+    "selected": null,
+    "camera": {
+      "position": [
+        -25.42387616352667,
+        56.97149196637737,
+        60.62453150050416
+      ],
+      "target": [
+        -50.99999999999999,
+        0,
+        29
+      ]
+    }
+  }
+}

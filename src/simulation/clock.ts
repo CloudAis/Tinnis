@@ -1,3 +1,4 @@
+import { stepPassengers } from './passengers';
 import { stepTrain, trainPose, type Pose } from './train';
 import { CONFIG } from '../config';
 import type { WorldState } from '../world/state';
@@ -14,6 +15,7 @@ export class Simulation {
       this.state.clock.tick++;
       this.state.clock.minutes += step * CONFIG.clock.minutesPerSecond * this.state.clock.speed;
       stepTrain(this.state,step*CONFIG.clock.minutesPerSecond*this.state.clock.speed);
+      stepPassengers(this.state);
       this.accumulator = Math.max(0, this.accumulator - step);
     }
   }

@@ -1,3 +1,4 @@
+import { PlatformCrowd } from './passengers';
 import { createTrainModel } from './train';
 import type { Pose } from '../simulation/train';
 import * as THREE from 'three';
@@ -24,6 +25,7 @@ export class WorldView {
   private preview=new THREE.Group();
   private trainModel:THREE.Group|null=null;
   private trainKey='';
+  private crowd=new PlatformCrowd();
   private following=false;
   private networkKey='';
   private previewKey='';
@@ -79,7 +81,7 @@ export class WorldView {
       this.addLabel(button,new THREE.Vector3(station.position[0],9,station.position[2]));
     }
     this.scene.add(plots);
-    this.scene.add(this.railwayModels,this.preview);
+    this.scene.add(this.railwayModels,this.preview,this.crowd.group);
     for(const node of NODES){
       const button=document.createElement('button');button.className='node-pin';button.dataset.node=node.id;
       button.setAttribute('aria-label',`选择轨道节点${node.name}`);button.title=node.name;button.innerHTML=`<span>${({'node-a':'A','node-b':'B','node-d':'D','node-c':'C','node-coast':'1','node-valley':'2','node-river':'3','node-forest':'4'} as Record<string,string>)[node.id]}</span><small>${node.name}</small>`;
@@ -195,6 +197,7 @@ export class WorldView {
     }
   }
   updateTrain(world:WorldState,pose:Pose|null){
+    if(this.crowd.update(world))this.dirty=true;
     const v=world.fleet.vehicle,key=v?`${v.id}:${v.type}`:'';
     if(key!==this.trainKey){
       if(this.trainModel){disposeGeometry(this.trainModel);this.scene.remove(this.trainModel);}
@@ -227,5 +230,5 @@ export class WorldView {
     this.renderer.render(this.scene,this.camera);
     this.renderedFrames++;this.paintMs.push(performance.now()-started);if(this.paintMs.length>120)this.paintMs.shift();
   }
-  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,trainModels:this.trainModel?1:0,trainVisible:this.trainModel?.visible??false,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
+  stats(){const times=[...this.paintMs].sort((a,b)=>a-b);return{renderedFrames:this.renderedFrames,needsRender:this.dirty,previewSegments:this.preview.children.length,medianPaintCpuMs:times[Math.floor(times.length/2)]??0,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,objects:this.scene.children.length,railwayModels:this.railwayModels.children.length,trainModels:this.trainModel?1:0,trainVisible:this.trainModel?.visible??false,visiblePeople:this.crowd.count,pixelRatio:this.renderer.getPixelRatio(),...this.modelInfo};}
 }

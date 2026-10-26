@@ -1,3 +1,5 @@
+import { newPassengers } from '../world/passengers';
+import { validatePassengers } from './passengers';
 import { newFleet } from '../world/fleet';
 import { copyVehicleReceipt, validateFleet } from './fleet';
 import { copyReceipt, validateRailway } from './railway';
@@ -5,9 +7,9 @@ import { newRailway } from '../world/railway';
 import { CONFIG } from '../config';
 import { MAP, TOWNS } from '../world/map';
 import { isStationId, type WorldState } from '../world/state';
-export const SAVE_KEY = 'alongline-town.save.v3';
+export const SAVE_KEY = 'alongline-town.save.v4';
 export const LEGACY_SAVE_KEY = 'alongline-town.save.v1';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export interface SaveFile { schemaVersion: number; savedAt: string; world: WorldState }
 const fail = () => { throw new Error('存档内容不完整或数据越界，当前世界未更改。'); };
 const record = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -16,11 +18,11 @@ const integer = (v: unknown): v is number => Number.isSafeInteger(v) && (v as nu
 function vec(v: unknown): v is [number, number, number] { return Array.isArray(v) && v.length === 3 && v.every(n => finite(n) && Math.abs(n) <= 1000); }
 // v1 had no constructed railway assets. Preserve its world and ledger, initialize an empty network.
 export function decodeSave(raw: string): SaveFile {
-  if (raw.length > 2_000_000) throw new Error('存档文件过大。');
+  if (raw.length > 8_000_000) throw new Error('存档文件过大。');
   let data: any;
   try { data = JSON.parse(raw); } catch { throw new Error('无法读取存档：不是有效的 JSON。'); }
   if (!record(data)) return fail();
-  if (![1, 2, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
+  if (![1, 2, 3, SCHEMA_VERSION].includes(data.schemaVersion)) throw new Error('不支持此存档版本，请使用兼容版本。');
   const w = data.world;
   if (!record(w) || !record(w.map) || !record(w.clock) || !record(w.economy) || !record(w.towns) || !record(w.camera)) return fail();
   if (w.map.id !== MAP.id || w.map.version !== MAP.version || w.map.seed !== MAP.seed) throw new Error('存档地图不兼容。');
@@ -56,17 +58,19 @@ export function decodeSave(raw: string): SaveFile {
     economy: { balance: w.economy.balance, ledger },
     railway,
     fleet:newFleet(),
+    passengers:newPassengers(w.clock.minutes),
     towns: Object.fromEntries(TOWNS.map(t => [t.id, { level: w.towns[t.id].level }])) as WorldState['towns'],
     selected: w.selected, camera: { position: [...w.camera.position], target: [...w.camera.target] },
   };
   world.fleet=validateFleet(data.schemaVersion<3?newFleet():w.fleet,world,ledger);
+  world.passengers=validatePassengers(data.schemaVersion<4?newPassengers(w.clock.minutes):w.passengers,world);
   return {schemaVersion:SCHEMA_VERSION,savedAt:data.savedAt,world};
 }
 export function encodeSave(world: WorldState): string {
   return JSON.stringify({ schemaVersion: SCHEMA_VERSION, savedAt: new Date().toISOString(), world }, null, 2);
 }
 export function readLocal(): SaveFile | null {
-  const raw = localStorage.getItem(SAVE_KEY) ?? localStorage.getItem('alongline-town.save.v2') ?? localStorage.getItem(LEGACY_SAVE_KEY);
+  const raw = localStorage.getItem(SAVE_KEY) ?? localStorage.getItem('alongline-town.save.v3') ?? localStorage.getItem('alongline-town.save.v2') ?? localStorage.getItem(LEGACY_SAVE_KEY);
   return raw ? decodeSave(raw) : null;
 }
-export function writeLocal(world: WorldState) { localStorage.setItem(SAVE_KEY, encodeSave(world)); }
+export function writeLocal(world: WorldState) { localStorage.setItem(SAVE_KEY, JSON.stringify({schemaVersion:SCHEMA_VERSION,savedAt:new Date().toISOString(),world})); }

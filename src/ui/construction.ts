@@ -25,7 +25,7 @@ export class ConstructionUI {
     document.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===editor.mode)));
     (document.querySelector('.town-list') as HTMLElement).hidden=editor.mode!=='inspect';
     document.querySelector('.sidebar')!.setAttribute('data-tool',editor.mode);
-    document.querySelector('.survey-tag')!.innerHTML=`<span></span> ${editor.mode==='track'?'走廊铺轨':editor.mode==='line'?'线路规划':editor.mode==='train'?'地方列车':'站点建设'}`;
+    document.querySelector('.survey-tag')!.innerHTML=`<span></span> ${editor.mode==='track'?'走廊铺轨':editor.mode==='line'?'线路规划':editor.mode==='train'?'地方列车':editor.mode==='passengers'?'沿线客流':'站点建设'}`;
     document.querySelector('.route-title strong')!.textContent=r.line.name;
     document.querySelector('.route-state')!.textContent=ready.ok?'线路已连通':'线路未就绪';
     document.querySelector('.route-map')!.setAttribute('aria-label',`主线 A—B；停站顺序 ${r.line.stops.map(id=>stationName(r,id)).join('—')}；预留 B—D 未开放；${ready.reason}`);

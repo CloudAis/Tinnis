@@ -1,3 +1,4 @@
+import { newPassengers, type PassengerState } from './passengers';
 import { newFleet, type FleetState, type VehicleReceipt } from './fleet';
 import { newRailway, type RailwayState, type ConstructionReceipt } from './railway';
 import { CONFIG } from '../config';
@@ -14,6 +15,7 @@ export interface WorldState {
   camera: CameraState;
   railway: RailwayState;
   fleet: FleetState;
+  passengers: PassengerState;
 }
 export const DEFAULT_CAMERA: CameraState = { position: [148, 145, 180], target: [0, 0, -3] };
 export function createWorld(): WorldState {
@@ -26,6 +28,7 @@ export function createWorld(): WorldState {
     camera: structuredClone(DEFAULT_CAMERA),
     railway: newRailway(),
     fleet: newFleet(),
+    passengers: newPassengers(),
   };
 }
 export function isStationId(id: unknown): id is StationId { return STATIONS.some(s => s.id === id); }
